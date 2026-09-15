@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="sl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zborček Sv. Trojice</title>
+    <link rel="stylesheet" href="styles.css?v=20260915-public2" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">ZT</span>
+        <div>
+          <h1>Zborček Sv. Trojice</h1>
+          <p>pesmi, vaje in svete maše</p>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Glavna navigacija">
+        <button class="nav-item active admin-only" data-view="mass">Maša</button>
+        <button class="nav-item" data-view="songbook">Pesmarica</button>
+        <button class="nav-item admin-only" data-view="chords">Akordi</button>
+        <button class="nav-item" data-view="calendar">Koledar</button>
+        <button class="nav-item admin-only" data-view="people">Udeleženci</button>
+      </nav>
+      <div class="source-box admin-only">
+        <span>Vir</span>
+        <strong>Google Sheet + Docs + Canva</strong>
+        <button id="syncCanva" class="sync-button">Preveri Canvo</button>
+        <small id="syncStatus">Canva pesmarica: pripravljeno</small>
+      </div>
+    </aside>
+
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Delovni prototip</p>
+          <h2 id="viewTitle">Načrt svete maše</h2>
+        </div>
+        <div class="top-actions admin-only">
+          <button id="exportJson" class="icon-button" title="Izvozi podatke">⇩</button>
+          <label class="icon-button" title="Uvozi podatke">
+            ⇧
+            <input id="importJson" type="file" accept="application/json" />
+          </label>
+        </div>
+        <button id="loginButton" class="ghost public-only" type="button">Prijava</button>
+        <div class="admin-session admin-only">
+          <span id="adminIdentity"></span>
+          <button id="logoutButton" class="ghost" type="button">Odjava</button>
+        </div>
+      </header>
+
+      <section id="mass" class="view active">
+        <div class="hero-panel">
+          <div class="hero-copy">
+            <span class="paint-label">Otroški pevski zbor</span>
+            <h3>Sv. Trojice v Halozah</h3>
+            <p>Petje, prijateljstvo, veselje in hitro sestavljanje pesmi za mašo.</p>
+          </div>
+          <div class="music-cloud" aria-hidden="true">
+            <span>♪</span><span>♫</span><span>♬</span><span>♪</span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label>
+            Datum
+            <input id="massDate" type="date" />
+          </label>
+          <label>
+            Opomba
+            <input id="massNote" type="text" placeholder="npr. družinska maša, zaključek leta" />
+          </label>
+          <button id="saveMass" class="primary">Shrani načrt</button>
+        </div>
+        <div class="mass-calendar-panel">
+          <div class="calendar-head">
+            <button id="prevMassMonth" class="ghost" type="button">‹</button>
+            <strong id="massCalendarTitle"></strong>
+            <button id="nextMassMonth" class="ghost" type="button">›</button>
+          </div>
+          <div id="massCalendar" class="mass-calendar"></div>
+        </div>
+        <div id="massSlots" class="slot-grid"></div>
+      </section>
+
+      <section id="songs" class="view">
+        <div class="split">
+          <div>
+            <div class="toolbar">
+              <input id="songSearch" class="search" type="search" placeholder="Poišči pesem" />
+              <button id="newSong" class="primary">Nova pesem</button>
+            </div>
+            <div id="songList" class="song-list"></div>
+          </div>
+          <form id="songForm" class="editor">
+            <label>
+              Naslov
+              <input id="songTitle" required />
+            </label>
+            <label>
+              Kategorije
+              <input id="songCategories" placeholder="Vstopna, Aleluja, Obhajilo" />
+            </label>
+            <label>
+              Povezava
+              <input id="songLink" type="url" placeholder="https://..." />
+            </label>
+            <label>
+              Stran v pesmarici
+              <input id="songPage" type="number" min="1" />
+            </label>
+            <label class="checkbox">
+              <input id="songKnown" type="checkbox" />
+              Že znamo
+            </label>
+            <label class="checkbox">
+              <input id="songInBook" type="checkbox" />
+              V otroški pesmarici
+            </label>
+            <label>
+              Besedilo
+              <textarea id="songLyrics" rows="12" placeholder="Besedilo brez akordov"></textarea>
+            </label>
+            <div class="form-actions">
+              <button class="primary" type="submit">Shrani pesem</button>
+              <button id="deleteSong" class="danger" type="button">Izbriši</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="songbook" class="view">
+        <div class="toolbar songbook-toolbar no-print">
+          <input id="songbookSearch" class="search admin-only" type="search" placeholder="Poišči pesem v pesmarici" />
+          <label>
+            Del maše
+            <select id="songbookMassPart">
+              <option value="">Vsi deli</option>
+            </select>
+          </label>
+          <label class="file-button admin-only">
+            Uvozi PDF iz Canve
+            <input id="importCanvaPdf" type="file" accept="application/pdf" />
+          </label>
+          <button id="saveSongbookToSongs" class="ghost push-right admin-only" type="button">Shrani pesmarico</button>
+          <button id="printSongbook" class="primary">Natisni pesmarico</button>
+          <a class="canva-open-link admin-only" href="https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit" target="_blank" rel="noreferrer">Odpri pesmarico v Canvi</a>
+        </div>
+        <div id="pdfImportStatus" class="import-status no-print admin-only"></div>
+        <div class="songbook-note no-print admin-only">
+          Pesmi iz Canve so prikazane kot originalne tiskalne strani iz mape assets/canva-songbook. Vpiši število izvodov pri posamezni pesmi; tisk je pripravljen po 2 strani na en A4 list.
+        </div>
+        <div class="songbook-workspace">
+          <div id="songbookPages" class="songbook-grid"></div>
+          <form id="songbookEditor" class="editor songbook-editor no-print admin-only">
+            <p class="section-label">Nastavitve pesmi</p>
+            <label>
+              Naslov
+              <input id="songbookTitle" />
+            </label>
+            <label>
+              Stran
+              <input id="songbookPageNumber" type="number" min="1" />
+            </label>
+            <fieldset class="mass-part-fieldset">
+              <legend>Deli maše</legend>
+              <div id="songbookMassParts" class="mass-part-checks"></div>
+            </fieldset>
+            <label>
+              Povezava
+              <input id="songbookLink" type="url" placeholder="https://..." />
+            </label>
+            <button class="primary" type="submit">Shrani nastavitve</button>
+          </form>
+        </div>
+        <article id="songbookPrint" class="songbook-print"></article>
+      </section>
+
+      <section id="chords" class="view">
+        <div class="toolbar no-print">
+          <input id="chordSearch" class="search" type="search" placeholder="Poišči pesem z akordi" />
+          <button id="openChordImport" class="ghost" type="button">Uvozi akorde</button>
+          <button id="printChords" class="primary" type="button">Natisni akorde</button>
+        </div>
+        <div id="chordImportStatus" class="import-status no-print"></div>
+        <div class="chord-workspace">
+          <div id="chordPages" class="chord-grid"></div>
+          <form id="chordEditor" class="editor chord-editor no-print">
+            <p class="section-label">Akordi</p>
+            <label>
+              Naslov
+              <input id="chordTitle" />
+            </label>
+            <label>
+              Prilepi ali uredi akorde
+              <textarea id="chordText" class="chord-textarea" spellcheck="false"></textarea>
+            </label>
+            <div id="inlineChordEditor" class="inline-chord-editor"></div>
+            <div class="form-actions">
+              <button id="transposeDown" class="ghost" type="button">-1</button>
+              <button id="transposeUp" class="ghost" type="button">+1</button>
+              <button id="saveChords" class="primary" type="submit">Shrani akorde</button>
+            </div>
+          </form>
+        </div>
+        <article id="chordPrint" class="chord-print"></article>
+      </section>
+
+      <section id="calendar" class="view">
+        <div class="calendar-layout">
+          <div class="calendar-connect-panel">
+            <p class="section-label">Google koledar</p>
+            <h3>Vaje in nastopi na enem mestu</h3>
+            <p class="muted">Dodaj nov dogodek ali deli koledar s starši in pevci.</p>
+            <form id="calendarEventForm" class="calendar-event-form admin-only">
+              <label>
+                Naslov dogodka
+                <input id="calendarEventTitle" type="text" placeholder="npr. Pevske vaje" required />
+              </label>
+              <label>
+                Datum
+                <input id="calendarEventDate" type="date" required />
+              </label>
+              <div class="calendar-event-time-grid">
+                <label>
+                  Začetek
+                  <input id="calendarEventStart" type="time" value="18:00" required />
+                </label>
+                <label>
+                  Konec
+                  <input id="calendarEventEnd" type="time" value="19:00" required />
+                </label>
+              </div>
+              <label>
+                Lokacija
+                <input id="calendarEventLocation" type="text" placeholder="npr. župnišče" />
+              </label>
+              <label>
+                Opis
+                <textarea id="calendarEventDescription" rows="3" placeholder="Dodatne informacije za udeležence"></textarea>
+              </label>
+              <button class="primary calendar-action" type="submit">Dodaj v ZBORČEK DOGODKI</button>
+              <p id="calendarEventStatus" class="calendar-event-status muted" role="status"></p>
+            </form>
+            <p class="section-label calendar-share-label">Povezava za udeležence</p>
+            <div class="calendar-actions">
+              <a id="googleCalendarOpen" class="primary calendar-action" href="#" target="_blank" rel="noreferrer">Dodaj v Google koledar</a>
+              <a id="googleCalendarIcs" class="ghost calendar-action admin-only" href="#" target="_blank" rel="noreferrer">Naroči se v telefonu</a>
+              <button id="downloadLocalIcs" class="ghost calendar-action admin-only" type="button">Prenesi dogodke (.ics)</button>
+            </div>
+            <div id="calendarSetup" class="calendar-setup admin-only">
+              <strong>Za povezavo z Google koledarjem:</strong>
+              <ol>
+                <li>V Google Calendar ustvari koledar za Zborcek Sv. Trojice.</li>
+                <li>V nastavitvah koledarja vklopi javno deljenje.</li>
+                <li>V datoteki app.js vnesi Calendar ID v nastavitev GOOGLE_CALENDAR_ID.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="calendar-embed-panel">
+            <iframe id="googleCalendarFrame" title="Koledar dogodkov Zborcka Sv. Trojice" loading="lazy"></iframe>
+            <div id="calendarFallback" class="calendar-fallback">
+              Google koledar se bo prikazal tukaj, ko bo vpisan javni Calendar ID.
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="toolbar calendar-list-head">
+            <h3>Dogodki iz nacrtov mas</h3>
+            <span id="calendarEventCount" class="muted"></span>
+          </div>
+          <div id="calendarEvents" class="calendar-event-list"></div>
+        </div>
+      </section>
+
+      <section id="people" class="view">
+        <div class="toolbar">
+          <button id="addPerson" class="primary">Dodaj udeleženca</button>
+          <span class="muted">Osebni podatki naj ostanejo zasebni in zaščiteni.</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ime</th>
+                <th>Starost</th>
+                <th>Starši</th>
+                <th>Posebnosti</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="peopleRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <dialog id="chordImportDialog" class="import-dialog no-print">
+        <form method="dialog" class="editor import-dialog-panel">
+          <p class="section-label">Uvoz akordov</p>
+          <label>
+            Prilepi besedilo
+            <textarea id="chordImportText" class="chord-textarea" spellcheck="false" placeholder="Sem prilepi pesem ali več pesmi z akordi ..."></textarea>
+          </label>
+          <div class="form-actions">
+            <button id="cancelChordImport" class="ghost" type="button">Prekliči</button>
+            <button id="importChordPaste" class="primary" type="button">Uvozi in pretvori</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="chordPrintDialog" class="import-dialog no-print">
+        <form method="dialog" class="editor import-dialog-panel">
+          <p class="section-label">Izberi pesmi za tisk</p>
+          <div class="print-picker-actions">
+            <button id="selectAllChordPrint" class="ghost" type="button">Označi vse</button>
+            <button id="clearChordPrint" class="ghost" type="button">Počisti</button>
+          </div>
+          <div id="chordPrintPicker" class="print-picker-list"></div>
+          <div class="form-actions">
+            <button id="cancelChordPrint" class="ghost" type="button">Prekliči</button>
+            <button id="confirmChordPrint" class="primary" type="button">Natisni izbrane</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="loginDialog" class="import-dialog no-print">
+        <div class="editor import-dialog-panel login-panel">
+          <p class="section-label">Skrbniški dostop</p>
+          <h3>Prijava administratorja</h3>
+          <p>Prijavi se z dovoljenim Google računom.</p>
+          <p id="loginStatus" class="muted" role="status"></p>
+          <div class="form-actions">
+            <button id="cancelLogin" class="ghost" type="button">Prekliči</button>
+            <button id="confirmLogin" class="primary" type="button">Prijava z Googlom</button>
+          </div>
+        </div>
+      </dialog>
+
+      <section id="print" class="view">
+        <div class="toolbar no-print">
+          <label>
+            Pogled
+            <select id="printMode">
+              <option value="children">Za otroke</option>
+              <option value="guitar">Za kitaro</option>
+              <option value="plan">Samo seznam</option>
+            </select>
+          </label>
+          <button id="printButton" class="primary">Natisni / PDF</button>
+        </div>
+        <article id="printPage" class="print-page"></article>
+      </section>
+    </main>
+
+    <script src="auth-config.js?v=20260915-public"></script>
+    <script src="auth.js?v=20260915-public"></script>
+    <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
+    <script src="app.js?v=20260915-public3"></script>
+  </body>
+</html>

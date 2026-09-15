@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="sl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zborcek USB predvajalnik</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --blue: #04354b;
+        --gold: #ffc743;
+        --rose: #ef3e7b;
+        --paper: #fffdf6;
+        --line: #cce7ed;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        background: #fff;
+        color: #111;
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+      }
+
+      .shell {
+        min-height: 100vh;
+      }
+
+      header {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 22px;
+        background: rgba(255, 253, 246, 0.92);
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        color: var(--blue);
+        font-size: 22px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      input,
+      button,
+      label.file-button {
+        min-height: 42px;
+        border: 1px solid #9dd7e6;
+        border-radius: 8px;
+        background: white;
+        color: var(--blue);
+        font: inherit;
+        font-weight: 800;
+      }
+
+      input {
+        width: 150px;
+        padding: 8px 12px;
+        font-size: 24px;
+        text-align: center;
+      }
+
+      button,
+      label.file-button {
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+
+      label.file-button input {
+        display: none;
+      }
+
+      .primary {
+        background: var(--rose);
+        color: white;
+        border-color: var(--rose);
+      }
+
+      main {
+        display: block;
+        min-height: 100vh;
+      }
+
+      aside {
+        display: none;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.82);
+        padding: 12px;
+      }
+
+      .song-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .song-item {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        text-align: left;
+      }
+
+      .song-item.active {
+        outline: 3px solid var(--rose);
+      }
+
+      .number {
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: var(--gold);
+        color: var(--blue);
+        font-weight: 900;
+      }
+
+      .stage {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background: white;
+        padding: 0;
+        display: grid;
+        place-items: center;
+      }
+
+      .songbook-image {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        max-width: 100vw;
+        max-height: 100vh;
+        margin: 0 auto;
+        object-fit: contain;
+        box-shadow: none;
+      }
+
+      .typing-indicator {
+        position: fixed;
+        z-index: 10;
+        top: 16px;
+        right: 18px;
+        width: 110px;
+        min-height: 42px;
+        padding: 4px 10px;
+        border: 0;
+        border-bottom: 2px solid rgba(4, 53, 75, 0.45);
+        border-radius: 0;
+        outline: 0;
+        background: rgba(255, 255, 255, 0.82);
+        color: #04354b;
+        font-size: 25px;
+        font-weight: 900;
+        text-align: right;
+      }
+
+      .typing-indicator:placeholder-shown {
+        opacity: 0;
+      }
+
+      .status {
+        color: #4e6d78;
+        font-weight: 800;
+      }
+
+      .song-number {
+        display: inline-grid;
+        place-items: center;
+        min-width: 38px;
+        height: 38px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--rose);
+        color: white;
+        font-weight: 900;
+        margin-bottom: 12px;
+      }
+
+      .song-title {
+        color: #111;
+        font-size: clamp(30px, 4vw, 58px);
+        text-transform: uppercase;
+        margin-bottom: 32px;
+      }
+
+      .chord-body {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: clamp(19px, 2.4vw, 34px);
+        line-height: 1.55;
+      }
+
+      .lyrics-body {
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+        text-align: center;
+        font-weight: 800;
+      }
+
+      .lyrics-body p {
+        margin: 0 0 0.65em;
+      }
+
+      :fullscreen .shell {
+        min-height: 100vh;
+      }
+
+      :fullscreen header,
+      :fullscreen aside {
+        display: none;
+      }
+
+      :fullscreen main {
+        display: block;
+        padding: 0;
+        min-height: 100vh;
+      }
+
+      :fullscreen .stage {
+        width: 100vw;
+        height: 100vh;
+        border: 0;
+        border-radius: 0;
+        padding: 4vh 5vw;
+        display: grid;
+        align-content: center;
+      }
+
+      :fullscreen .song-title {
+        font-size: clamp(42px, 5vw, 84px);
+        text-align: center;
+      }
+
+      :fullscreen .song-number {
+        position: fixed;
+        top: 20px;
+        right: 24px;
+      }
+
+      :fullscreen .songbook-image {
+        max-width: 100vw;
+        max-height: 100vh;
+        box-shadow: none;
+      }
+
+      .line {
+        display: block;
+        margin: 12px 0;
+        white-space: nowrap;
+      }
+
+      .char {
+        display: inline-grid;
+        grid-template-rows: 0.9em auto;
+        min-width: 0.62em;
+        vertical-align: bottom;
+      }
+
+      .chord {
+        justify-self: start;
+        width: fit-content;
+        padding: 0 5px;
+        border-radius: 4px;
+        background: #fff1b8;
+        color: #111;
+        font-weight: 900;
+        font-size: 0.68em;
+        line-height: 1.25;
+        transform: translateX(-2px);
+      }
+
+      .lyric {
+        min-width: 0.62em;
+        text-align: center;
+      }
+
+      .empty {
+        display: grid;
+        place-items: center;
+        min-height: 60vh;
+        color: var(--blue);
+        text-align: center;
+        font-size: 28px;
+        font-weight: 900;
+      }
+
+      @media (max-width: 860px) {
+        main {
+          min-height: 100vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <input id="typingIndicator" class="typing-indicator" aria-label="Vnesena številka" placeholder="" readonly />
+    <div class="shell">
+      <header>
+        <div>
+          <h1>USB predvajalnik pesmi</h1>
+          <p id="status" class="status">Uvozi podatke iz aplikacije ali vnesi številko pesmi.</p>
+        </div>
+        <div class="controls">
+          <input id="numberInput" inputmode="numeric" placeholder="št." autofocus />
+          <button id="showSong" class="primary" type="button">Prikaži</button>
+          <label class="file-button">
+            Uvozi JSON
+            <input id="importJson" type="file" accept="application/json" />
+          </label>
+        </div>
+      </header>
+      <main>
+        <aside>
+          <div id="songList" class="song-list"></div>
+        </aside>
+        <section id="stage" class="stage">
+          <div class="empty">Vpiši številko pesmi in pritisni Enter.</div>
+        </section>
+      </main>
+    </div>
+
+    <script src="zborcek-predstavitev-pesmarica.js"></script>
+    <script>
+      const STORAGE_KEY = "zborcek-usb-predvajalnik";
+      let songs = loadSongs();
+      let activeNumber = "";
+      let typedNumber = "";
+
+      const $ = (selector) => document.querySelector(selector);
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        })[char]);
+      }
+
+      function loadSongs() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          if (Array.isArray(stored)) return stored;
+        } catch {}
+        try {
+          const appState = JSON.parse(localStorage.getItem("zborcek-sv-trojice-v2") || "null");
+          if (appState?.songs) return normalizeSongs(appState.songs);
+        } catch {}
+        return [];
+      }
+
+      async function loadBundledSongbook() {
+        if (window.ZBORCEK_SONGBOOK) {
+          const bundled = normalizeSongs(window.ZBORCEK_SONGBOOK.songs || window.ZBORCEK_SONGBOOK);
+          if (bundled.length) {
+            songs = bundled;
+            return true;
+          }
+        }
+        try {
+          const response = await fetch("zborcek-predstavitev-pesmarica.json", { cache: "no-store" });
+          if (!response.ok) return false;
+          const data = await response.json();
+          const bundled = normalizeSongs(data.songs ? data.songs : data);
+          if (!bundled.length) return false;
+          songs = bundled;
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function normalizeSongs(source) {
+        const list = Array.isArray(source) ? source : source?.songs || [];
+        return list
+          .filter((song) => song.imageDataUrl || song.inBook)
+          .map((song, index) => ({
+            number: Number(song.number || song.songNumber || song.page || index + 1),
+            title: song.title || "Brez naslova",
+            body: song.body || song.lyrics || song.title || "",
+            imageDataUrl: song.imageDataUrl || "",
+          }))
+          .sort((a, b) => a.number - b.number || a.title.localeCompare(b.title, "sl"));
+      }
+
+      function tokenize(text) {
+        return String(text || "").split("\n").map((line) => {
+          const chars = [];
+          let pendingChord = "";
+          for (let index = 0; index < line.length; index += 1) {
+            if (line[index] === "[") {
+              const end = line.indexOf("]", index + 1);
+              if (end > index) {
+                pendingChord = line.slice(index + 1, end);
+                index = end;
+                continue;
+              }
+            }
+            chars.push({ chord: pendingChord, text: line[index] });
+            pendingChord = "";
+          }
+          return chars;
+        });
+      }
+
+      function renderChordText(text) {
+        return tokenize(text).map((line) => {
+          if (!line.length) return '<div class="line">&nbsp;</div>';
+          return `<div class="line">${line.map((char) => `
+            <span class="char">
+              ${char.chord ? `<span class="chord">${escapeHtml(char.chord)}</span>` : ""}
+              <span class="lyric">${char.text === " " ? "&nbsp;" : escapeHtml(char.text)}</span>
+            </span>
+          `).join("")}</div>`;
+        }).join("");
+      }
+
+      function stripChords(text) {
+        return String(text || "").replace(/\[[^\]]+\]/g, "");
+      }
+
+      function renderLyrics(text) {
+        return stripChords(text)
+          .split("\n")
+          .map((line) => `<p>${escapeHtml(line) || "&nbsp;"}</p>`)
+          .join("");
+      }
+
+      function enterFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+      }
+
+      function toggleFullscreen() {
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        else enterFullscreen();
+      }
+
+      function renderList() {
+        $("#status").textContent = songs.length
+          ? `Naloženih ${songs.length} pesmi. Vnesi številko in pritisni Enter.`
+          : "Najprej uvozi JSON iz glavne aplikacije.";
+        $("#songList").innerHTML = songs.map((song) => `
+          <button class="song-item ${Number(activeNumber) === song.number ? "active" : ""}" type="button" data-number="${song.number}">
+            <span class="number">${escapeHtml(song.number)}</span>
+            <strong>${escapeHtml(song.title)}</strong>
+          </button>
+        `).join("");
+      }
+
+      function showByNumber(number, useFullscreen = true) {
+        activeNumber = String(number || "").trim();
+        typedNumber = "";
+        $("#numberInput").value = activeNumber;
+        $("#typingIndicator").value = "";
+        const song = songs.find((item) => String(item.number) === activeNumber);
+        if (!song) {
+          $("#stage").innerHTML = `<div class="empty">Pesem št. ${escapeHtml(activeNumber || "?")} ni najdena.</div>`;
+          renderList();
+          return;
+        }
+        $("#stage").innerHTML = song.imageDataUrl
+          ? `<img class="songbook-image" src="${song.imageDataUrl}" alt="${escapeHtml(song.title)}" />`
+          : `
+            <div class="song-number">${escapeHtml(song.number)}</div>
+            <h2 class="song-title">${escapeHtml(song.title)}</h2>
+            <div class="chord-body lyrics-body">${renderLyrics(song.body)}</div>
+          `;
+        renderList();
+        document.activeElement?.blur?.();
+        if (useFullscreen) enterFullscreen();
+      }
+
+      $("#showSong").addEventListener("click", () => showByNumber($("#numberInput").value));
+      $("#numberInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") showByNumber($("#numberInput").value);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key.toLowerCase() === "f") toggleFullscreen();
+        if (event.key === "Escape") {
+          const now = Date.now();
+          if (window.lastEscape && now - window.lastEscape < 700) {
+            window.open("", "_self");
+            window.close();
+            setTimeout(() => location.replace("about:blank"), 80);
+          }
+          window.lastEscape = now;
+          return;
+        }
+        if (event.target.matches("input") && event.target.id !== "typingIndicator") return;
+        if (/^\d$/.test(event.key)) {
+          typedNumber += event.key;
+          $("#numberInput").value = typedNumber;
+          $("#typingIndicator").value = typedNumber;
+        }
+        if (event.key === "Backspace") {
+          typedNumber = typedNumber.slice(0, -1);
+          $("#numberInput").value = typedNumber;
+          $("#typingIndicator").value = typedNumber;
+        }
+        if (event.key === "Enter" && typedNumber) showByNumber(typedNumber);
+      });
+      $("#songList").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-number]");
+        if (button) showByNumber(button.dataset.number);
+      });
+      $("#importJson").addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const data = JSON.parse(await file.text());
+        songs = normalizeSongs(data.songs ? data.songs : data);
+        activeNumber = "";
+        $("#stage").innerHTML = `<div class="empty">Podatki so naloženi. Vpiši številko pesmi.</div>`;
+        renderList();
+      });
+
+      (async () => {
+        await loadBundledSongbook();
+        renderList();
+        if (songs.some((song) => song.number === 1)) showByNumber(1, false);
+      })();
+    </script>
+  </body>
+</html>
