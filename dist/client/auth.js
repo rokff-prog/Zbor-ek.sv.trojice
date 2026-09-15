@@ -8,11 +8,18 @@
   const api = {
     state: { isAdmin: localHost && !forcePublic, email: localHost && !forcePublic ? "lokalni skrbnik" : "" },
     async signIn() {
-      if (!config.firebase) throw new Error("Google prijava še ni nastavljena. Dopolni auth-config.js.");
+      if (!config.firebase) {
+        location.assign("/signin-with-chatgpt?return_to=/");
+        return api.state;
+      }
       const result = await firebaseApi.signInWithPopup(firebaseAuth, new firebaseApi.GoogleAuthProvider());
       return validateUser(result.user);
     },
     async signOut() {
+      if (!config.firebase && !localHost) {
+        location.assign("/signout-with-chatgpt?return_to=/");
+        return;
+      }
       if (firebaseAuth && firebaseApi) await firebaseApi.signOut(firebaseAuth);
       updateState(false, "");
     },
@@ -47,5 +54,10 @@
         else updateState(false, "");
       });
     }).catch(() => updateState(false, ""));
+  } else if (!localHost) {
+    fetch("/api/auth-state", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => response.ok ? response.json() : { isAdmin: false, email: "" })
+      .then((state) => updateState(Boolean(state.isAdmin), state.email || ""))
+      .catch(() => updateState(false, ""));
   }
 }());
