@@ -20,8 +20,14 @@ const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const GOOGLE_CALENDAR_ID = "2103b0e25cf9502a583ece20c9286ad5ae4b33d41d001fd381c82531a359d34f@group.calendar.google.com";
 const GOOGLE_CALENDAR_TIMEZONE = "Europe/Ljubljana";
+const HOSTED_APP_ORIGIN = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site";
+const IS_GITHUB_PUBLIC = location.hostname.endsWith("github.io");
+const API_BASE = IS_GITHUB_PUBLIC ? HOSTED_APP_ORIGIN : "";
 
 let canvaPageImages = new Map();
+let remoteSaveTimer = null;
+let remoteStateLoadedForAdmin = false;
+let suppressRemoteSave = false;
 
 const importedChordSheets = {
   "Ves dan vso noč": `E
@@ -666,7 +672,86 @@ function loadState() {
 }
 
 function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
+  } catch (error) {
+    console.warn("Lokalno shranjevanje ni uspelo.", error);
+  }
+  if (isAdminView && !suppressRemoteSave && !IS_GITHUB_PUBLIC) {
+    clearTimeout(remoteSaveTimer);
+    remoteSaveTimer = setTimeout(() => saveStateToServer().catch(console.error), 700);
+  }
+}
+
+async function apiFetch(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
+    credentials: IS_GITHUB_PUBLIC ? "omit" : "same-origin",
+    ...options,
+  });
+}
+
+async function saveStateToServer() {
+  if (!isAdminView || IS_GITHUB_PUBLIC) return false;
+  const response = await apiFetch("/api/state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  });
+  if (!response.ok) throw new Error(`Spletno shranjevanje ni uspelo (${response.status}).`);
+  return true;
+}
+
+function applyRemotePublicState(remote) {
+  if (!remote || typeof remote !== "object") return;
+  suppressRemoteSave = true;
+  if (Array.isArray(remote.songs)) state.songs = remote.songs;
+  if (Array.isArray(remote.massHistory)) state.massHistory = remote.massHistory;
+  if (Array.isArray(remote.canvaPages)) state.canvaPages = remote.canvaPages;
+  if (remote.canva) state.canva = remote.canva;
+  suppressRemoteSave = false;
+}
+
+async function loadRemotePublicState() {
+  try {
+    const response = await apiFetch("/api/public-state");
+    if (response.ok) applyRemotePublicState(await response.json());
+  } catch (error) {
+    console.warn("Javni podatki trenutno niso dosegljivi.", error);
+  }
+}
+
+async function loadRemoteSongbook() {
+  try {
+    const response = await apiFetch("/api/songbook");
+    if (response.ok) window.ZBORCEK_SONGBOOK = await response.json();
+  } catch (error) {
+    console.warn("Spletna pesmarica trenutno ni dosegljiva.", error);
+  }
+}
+
+async function loadRemoteAdminState() {
+  if (remoteStateLoadedForAdmin || !isAdminView || IS_GITHUB_PUBLIC) return;
+  remoteStateLoadedForAdmin = true;
+  try {
+    const response = await apiFetch("/api/state");
+    if (response.ok) {
+      suppressRemoteSave = true;
+      state = await response.json();
+      migrateState();
+      suppressRemoteSave = false;
+      selectedSongId = state.songs[0]?.id || null;
+      visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : visibleMassMonth;
+      await loadRemoteSongbook();
+      await loadCanvaPageImages();
+      renderAll();
+    } else if (response.status === 404) {
+      await saveStateToServer();
+    }
+  } catch (error) {
+    suppressRemoteSave = false;
+    console.warn("Uredniski podatki trenutno niso dosegljivi.", error);
+  }
 }
 
 function migrateState() {
@@ -1022,13 +1107,22 @@ async function saveSongbookToSongs() {
     const payload = await presentationSongbookPayload();
     state.canva = { ...(state.canva || {}), needsPresentationExport: false, lastPresentationExport: payload.exportedAt };
     persist();
+    if (isAdminView && !IS_GITHUB_PUBLIC) {
+      const response = await apiFetch("/api/songbook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error(`Spletna posodobitev pesmarice ni uspela (${response.status}).`);
+      await saveStateToServer();
+    }
     try { localStorage.removeItem("zborcek-usb-predvajalnik"); } catch {}
     downloadTextFile(
       "zborcek-predstavitev-pesmarica.js",
       `window.ZBORCEK_SONGBOOK = ${JSON.stringify(payload)};`,
       "text/javascript",
     );
-    setPdfImportStatus(`Pesmarica pripravljena: ${added} novih, ${updated} posodobljenih pesmi. Prenesena je datoteka zborcek-predstavitev-pesmarica.js.`);
+    setPdfImportStatus(`Pesmarica je posodobljena na javni strani: ${added} novih, ${updated} posodobljenih pesmi. Prenesena je tudi datoteka za USB predvajalnik.`);
     renderAll();
   } catch (error) {
     setPdfImportStatus(`Shranjevanje ni uspelo: ${error.message}`);
@@ -1052,6 +1146,7 @@ function applyAccessMode(authState = {}) {
   if (identity) identity.textContent = authState.email || "Skrbnik";
   const activeView = $(".view.active")?.id;
   if (!isAdminView && !["songbook", "calendar"].includes(activeView)) setView("songbook");
+  if (isAdminView) loadRemoteAdminState();
 }
 
 function renderMass() {
@@ -2474,7 +2569,11 @@ function renderAll() {
 document.addEventListener("zborcek-auth-state", (event) => applyAccessMode(event.detail));
 wireEvents();
 applyAccessMode(window.zborcekAuth?.state || {});
-syncCanvaSongbook({ silent: true });
-loadCanvaPageImages()
-  .catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."))
-  .finally(renderAll);
+document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
+(async function bootstrap() {
+  syncCanvaSongbook({ silent: true });
+  await Promise.all([loadRemotePublicState(), loadRemoteSongbook()]);
+  await loadCanvaPageImages()
+    .catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
+  renderAll();
+}());

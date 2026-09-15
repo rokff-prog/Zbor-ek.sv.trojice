@@ -39,6 +39,10 @@ body.public-mode .admin-only {
   display: none !important;
 }
 
+body.github-public #loginButton {
+  display: none !important;
+}
+
 body.public-mode .public-only {
   display: inline-flex;
 }

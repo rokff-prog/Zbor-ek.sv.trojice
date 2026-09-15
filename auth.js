@@ -9,7 +9,7 @@
     state: { isAdmin: localHost && !forcePublic, email: localHost && !forcePublic ? "lokalni skrbnik" : "" },
     async signIn() {
       if (!config.firebase) {
-        location.assign("/signin-with-chatgpt?return_to=/");
+        location.assign("/signin-with-chatgpt?return_to=/admin");
         return api.state;
       }
       const result = await firebaseApi.signInWithPopup(firebaseAuth, new firebaseApi.GoogleAuthProvider());
