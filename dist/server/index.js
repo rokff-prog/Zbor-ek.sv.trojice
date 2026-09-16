@@ -21,8 +21,15 @@ function constantTimeEqual(left, right) {
   return difference === 0;
 }
 
+async function secretValue(binding) {
+  if (binding && typeof binding.get === "function") return String(await binding.get());
+  return String(binding || "");
+}
+
 async function passwordMatches(password, env) {
   if (!env.ADMIN_PASSWORD_SALT || !env.ADMIN_PASSWORD_HASH) return false;
+  const salt = await secretValue(env.ADMIN_PASSWORD_SALT);
+  const expectedHash = await secretValue(env.ADMIN_PASSWORD_HASH);
   const material = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
@@ -33,10 +40,10 @@ async function passwordMatches(password, env) {
   const bits = await crypto.subtle.deriveBits({
     name: "PBKDF2",
     hash: "SHA-256",
-    salt: base64UrlToBytes(String(env.ADMIN_PASSWORD_SALT)),
+    salt: base64UrlToBytes(salt),
     iterations: 150000,
   }, material, 256);
-  return constantTimeEqual(new Uint8Array(bits), base64UrlToBytes(String(env.ADMIN_PASSWORD_HASH)));
+  return constantTimeEqual(new Uint8Array(bits), base64UrlToBytes(expectedHash));
 }
 
 async function signSession(value, secret) {
@@ -58,7 +65,7 @@ async function sessionFor(request, env) {
   if (!token || !env.SESSION_SECRET) return { username: "", isAdmin: false };
   const [payload, signature] = token.split(".");
   if (!payload || !signature) return { username: "", isAdmin: false };
-  const expected = await signSession(payload, String(env.SESSION_SECRET));
+  const expected = await signSession(payload, await secretValue(env.SESSION_SECRET));
   if (!constantTimeEqual(new TextEncoder().encode(signature), new TextEncoder().encode(expected))) {
     return { username: "", isAdmin: false };
   }
@@ -114,7 +121,7 @@ export default {
         username: env.ADMIN_USERNAME,
         expiresAt: Date.now() + SESSION_SECONDS * 1000,
       })));
-      const signature = await signSession(payload, String(env.SESSION_SECRET));
+      const signature = await signSession(payload, await secretValue(env.SESSION_SECRET));
       return Response.json({ isAdmin: true, username: env.ADMIN_USERNAME }, {
         headers: {
           "Cache-Control": "no-store",
