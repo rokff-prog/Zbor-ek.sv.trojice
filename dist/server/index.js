@@ -100,7 +100,17 @@ export default {
 
     if (url.pathname === "/api/auth-state") {
       const configured = Boolean(env.ADMIN_USERNAME && env.ADMIN_PASSWORD_SALT && env.ADMIN_PASSWORD_HASH && env.SESSION_SECRET);
-      return Response.json({ isAdmin, username: isAdmin ? username : "", configured }, {
+      const diagnostics = Object.fromEntries(await Promise.all([
+        ["salt", env.ADMIN_PASSWORD_SALT],
+        ["hash", env.ADMIN_PASSWORD_HASH],
+        ["session", env.SESSION_SECRET],
+      ].map(async ([key, binding]) => [key, {
+        type: typeof binding,
+        constructor: binding?.constructor?.name || "",
+        keys: binding && typeof binding === "object" ? Object.keys(binding) : [],
+        resolvedLength: (await secretValue(binding)).length,
+      }])));
+      return Response.json({ isAdmin, username: isAdmin ? username : "", configured, diagnostics }, {
         headers: { "Cache-Control": "no-store" },
       });
     }
