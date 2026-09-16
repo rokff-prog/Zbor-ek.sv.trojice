@@ -8,12 +8,6 @@ function bytesToBase64Url(bytes) {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function base64UrlToBytes(value) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
 function constantTimeEqual(left, right) {
   if (left.length !== right.length) return false;
   let difference = 0;
@@ -27,23 +21,9 @@ async function secretValue(binding) {
 }
 
 async function passwordMatches(password, env) {
-  if (!env.ADMIN_PASSWORD_SALT || !env.ADMIN_PASSWORD_HASH) return false;
-  const salt = await secretValue(env.ADMIN_PASSWORD_SALT);
-  const expectedHash = await secretValue(env.ADMIN_PASSWORD_HASH);
-  const material = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    hash: "SHA-256",
-    salt: base64UrlToBytes(salt),
-    iterations: 150000,
-  }, material, 256);
-  return constantTimeEqual(new Uint8Array(bits), base64UrlToBytes(expectedHash));
+  if (!env.ADMIN_PASSWORD) return false;
+  const encoder = new TextEncoder();
+  return constantTimeEqual(encoder.encode(password), encoder.encode(await secretValue(env.ADMIN_PASSWORD)));
 }
 
 async function signSession(value, secret) {
@@ -99,18 +79,8 @@ export default {
     }
 
     if (url.pathname === "/api/auth-state") {
-      const configured = Boolean(env.ADMIN_USERNAME && env.ADMIN_PASSWORD_SALT && env.ADMIN_PASSWORD_HASH && env.SESSION_SECRET);
-      const diagnostics = Object.fromEntries(await Promise.all([
-        ["salt", env.ADMIN_PASSWORD_SALT],
-        ["hash", env.ADMIN_PASSWORD_HASH],
-        ["session", env.SESSION_SECRET],
-      ].map(async ([key, binding]) => [key, {
-        type: typeof binding,
-        constructor: binding?.constructor?.name || "",
-        keys: binding && typeof binding === "object" ? Object.keys(binding) : [],
-        resolvedLength: (await secretValue(binding)).length,
-      }])));
-      return Response.json({ isAdmin, username: isAdmin ? username : "", configured, diagnostics }, {
+      const configured = Boolean(env.ADMIN_USERNAME && env.ADMIN_PASSWORD && env.SESSION_SECRET);
+      return Response.json({ isAdmin, username: isAdmin ? username : "", configured }, {
         headers: { "Cache-Control": "no-store" },
       });
     }
