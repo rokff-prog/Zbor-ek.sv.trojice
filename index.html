@@ -239,7 +239,7 @@
                 Opis
                 <textarea id="calendarEventDescription" rows="3" placeholder="Dodatne informacije za udeležence"></textarea>
               </label>
-              <button class="primary calendar-action" type="submit">Dodaj v ZBORČEK DOGODKI</button>
+              <button class="primary calendar-action" type="submit">Dodaj javni dogodek</button>
               <p id="calendarEventStatus" class="calendar-event-status muted" role="status"></p>
             </form>
             <p class="section-label calendar-share-label">Povezava za udeležence</p>
@@ -327,7 +327,8 @@
         <div class="editor import-dialog-panel login-panel">
           <p class="section-label">Skrbniški dostop</p>
           <h3>Prijava administratorja</h3>
-          <p>Prijavi se s svojim dovoljenim skrbniškim računom.</p>
+          <label>Uporabniško ime<input id="loginUsername" type="text" autocomplete="username" /></label>
+          <label>Geslo<input id="loginPassword" type="password" autocomplete="current-password" /></label>
           <p id="loginStatus" class="muted" role="status"></p>
           <div class="form-actions">
             <button id="cancelLogin" class="ghost" type="button">Prekliči</button>
@@ -353,8 +354,8 @@
     </main>
 
     <script src="auth-config.js?v=20260915-public"></script>
-    <script src="auth.js?v=20260915-github1"></script>
+    <script src="auth.js?v=20260916-password"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="app.js?v=20260915-github1"></script>
+    <script src="app.js?v=20260916-password"></script>
   </body>
 </html>

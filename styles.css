@@ -39,10 +39,6 @@ body.public-mode .admin-only {
   display: none !important;
 }
 
-body.github-public #loginButton {
-  display: none !important;
-}
-
 body.public-mode .public-only {
   display: inline-flex;
 }
@@ -62,6 +58,14 @@ body.public-mode .public-only {
 .login-panel h3,
 .login-panel p {
   margin-top: 0;
+}
+
+.login-panel label {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  color: var(--ink);
+  font-weight: 800;
 }
 
 button,

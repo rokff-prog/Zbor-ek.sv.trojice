@@ -2105,10 +2105,9 @@ function openGoogleCalendarEvent(event) {
     location: $("#calendarEventLocation").value.trim(),
     ctz: GOOGLE_CALENDAR_TIMEZONE,
     src: GOOGLE_CALENDAR_ID.trim(),
-    visibility: "public",
   });
   window.open(`https://calendar.google.com/calendar/render?${params}`, "_blank", "noopener");
-  status.textContent = "Dogodek je pripravljen. V Google Koledarju klikni Shrani.";
+  status.textContent = "Javni dogodek je pripravljen. V Google Koledarju klikni Shrani.";
 }
 
 function renderCalendar() {
@@ -2215,19 +2214,28 @@ function wireEvents() {
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 
   $("#loginButton").addEventListener("click", () => {
+    if (location.hostname === "rokff-prog.github.io") {
+      location.assign("https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site/admin");
+      return;
+    }
     $("#loginStatus").textContent = "";
     $("#loginDialog").showModal();
+    $("#loginUsername").focus();
   });
   $("#cancelLogin").addEventListener("click", () => $("#loginDialog").close());
   $("#confirmLogin").addEventListener("click", async () => {
     const status = $("#loginStatus");
-    status.textContent = "Odpiram Google prijavo ...";
+    status.textContent = "Preverjam prijavo ...";
     try {
-      await window.zborcekAuth.signIn();
+      await window.zborcekAuth.signIn($("#loginUsername").value.trim(), $("#loginPassword").value);
+      $("#loginPassword").value = "";
       $("#loginDialog").close();
     } catch (error) {
       status.textContent = error.message;
     }
+  });
+  $("#loginPassword").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") $("#confirmLogin").click();
   });
   $("#logoutButton").addEventListener("click", () => window.zborcekAuth.signOut());
 

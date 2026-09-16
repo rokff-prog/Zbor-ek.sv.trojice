@@ -1,63 +1,53 @@
 (function initializeZborcekAuth() {
-  const config = window.ZBORCEK_AUTH_CONFIG || {};
   const localHost = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+  const githubPublic = location.hostname === "rokff-prog.github.io";
   const forcePublic = new URLSearchParams(location.search).has("public");
-  let firebaseAuth = null;
-  let firebaseApi = null;
+  const adminOrigin = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site";
 
   const api = {
-    state: { isAdmin: localHost && !forcePublic, email: localHost && !forcePublic ? "lokalni skrbnik" : "" },
-    async signIn() {
-      if (!config.firebase) {
-        location.assign("/signin-with-chatgpt?return_to=/admin");
+    state: { isAdmin: localHost && !forcePublic, username: localHost && !forcePublic ? "lokalni skrbnik" : "" },
+    async signIn(username, password) {
+      if (githubPublic) {
+        location.assign(`${adminOrigin}/admin`);
         return api.state;
       }
-      const result = await firebaseApi.signInWithPopup(firebaseAuth, new firebaseApi.GoogleAuthProvider());
-      return validateUser(result.user);
+      if (localHost) {
+        updateState(true, username || "lokalni skrbnik");
+        return api.state;
+      }
+      const response = await fetch("/api/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Prijava ni uspela.");
+      updateState(true, result.username);
+      return api.state;
     },
     async signOut() {
-      if (!config.firebase && !localHost) {
-        location.assign("/signout-with-chatgpt?return_to=/");
-        return;
-      }
-      if (firebaseAuth && firebaseApi) await firebaseApi.signOut(firebaseAuth);
+      if (!localHost) await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
       updateState(false, "");
+      if (location.pathname === "/admin") location.assign("/");
     },
   };
 
   window.zborcekAuth = api;
 
-  function updateState(isAdmin, email) {
-    api.state = { isAdmin, email };
+  function updateState(isAdmin, username) {
+    api.state = { isAdmin, username, email: username };
     document.dispatchEvent(new CustomEvent("zborcek-auth-state", { detail: api.state }));
+    if (!isAdmin && location.pathname === "/admin") {
+      const dialog = document.querySelector("#loginDialog");
+      if (dialog && !dialog.open) dialog.showModal();
+    }
   }
 
-  async function validateUser(user) {
-    const email = String(user?.email || "").toLowerCase();
-    const allowed = (config.adminEmails || []).map((value) => String(value).toLowerCase());
-    const isAdmin = Boolean(email && allowed.includes(email));
-    if (!isAdmin && firebaseAuth && firebaseApi) await firebaseApi.signOut(firebaseAuth);
-    updateState(isAdmin, isAdmin ? email : "");
-    if (!isAdmin) throw new Error("Ta Google račun nima skrbniškega dostopa.");
-    return api.state;
-  }
-
-  if (config.firebase) {
-    Promise.all([
-      import("https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js"),
-      import("https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js"),
-    ]).then(([appModule, authModule]) => {
-      firebaseApi = authModule;
-      firebaseAuth = authModule.getAuth(appModule.initializeApp(config.firebase));
-      authModule.onAuthStateChanged(firebaseAuth, (user) => {
-        if (user) validateUser(user).catch(() => {});
-        else updateState(false, "");
-      });
-    }).catch(() => updateState(false, ""));
-  } else if (!localHost) {
+  if (!localHost && !githubPublic) {
     fetch("/api/auth-state", { credentials: "same-origin", cache: "no-store" })
-      .then((response) => response.ok ? response.json() : { isAdmin: false, email: "" })
-      .then((state) => updateState(Boolean(state.isAdmin), state.email || ""))
+      .then((response) => response.ok ? response.json() : { isAdmin: false, username: "" })
+      .then((state) => updateState(Boolean(state.isAdmin), state.username || ""))
       .catch(() => updateState(false, ""));
   }
 }());
