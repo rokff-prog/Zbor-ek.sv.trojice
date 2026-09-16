@@ -92,7 +92,8 @@ export default {
     }
 
     if (url.pathname === "/api/auth-state") {
-      return Response.json({ isAdmin, username: isAdmin ? username : "" }, {
+      const configured = Boolean(env.ADMIN_USERNAME && env.ADMIN_PASSWORD_SALT && env.ADMIN_PASSWORD_HASH && env.SESSION_SECRET);
+      return Response.json({ isAdmin, username: isAdmin ? username : "", configured }, {
         headers: { "Cache-Control": "no-store" },
       });
     }
