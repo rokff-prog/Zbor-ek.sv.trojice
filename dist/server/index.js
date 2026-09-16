@@ -33,10 +33,10 @@ async function passwordMatches(password, env) {
   const bits = await crypto.subtle.deriveBits({
     name: "PBKDF2",
     hash: "SHA-256",
-    salt: base64UrlToBytes(env.ADMIN_PASSWORD_SALT),
+    salt: base64UrlToBytes(String(env.ADMIN_PASSWORD_SALT)),
     iterations: 150000,
   }, material, 256);
-  return constantTimeEqual(new Uint8Array(bits), base64UrlToBytes(env.ADMIN_PASSWORD_HASH));
+  return constantTimeEqual(new Uint8Array(bits), base64UrlToBytes(String(env.ADMIN_PASSWORD_HASH)));
 }
 
 async function signSession(value, secret) {
@@ -58,7 +58,7 @@ async function sessionFor(request, env) {
   if (!token || !env.SESSION_SECRET) return { username: "", isAdmin: false };
   const [payload, signature] = token.split(".");
   if (!payload || !signature) return { username: "", isAdmin: false };
-  const expected = await signSession(payload, env.SESSION_SECRET);
+  const expected = await signSession(payload, String(env.SESSION_SECRET));
   if (!constantTimeEqual(new TextEncoder().encode(signature), new TextEncoder().encode(expected))) {
     return { username: "", isAdmin: false };
   }
@@ -114,7 +114,7 @@ export default {
         username: env.ADMIN_USERNAME,
         expiresAt: Date.now() + SESSION_SECONDS * 1000,
       })));
-      const signature = await signSession(payload, env.SESSION_SECRET);
+      const signature = await signSession(payload, String(env.SESSION_SECRET));
       return Response.json({ isAdmin: true, username: env.ADMIN_USERNAME }, {
         headers: {
           "Cache-Control": "no-store",
