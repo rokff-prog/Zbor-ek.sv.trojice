@@ -183,6 +183,12 @@ export default {
       return new Response(null, { status: 405 });
     }
 
+    if (url.pathname === "/admin" && request.method === "GET") {
+      return env.ASSETS.fetch(new Request(new URL("/index.html", request.url), {
+        headers: request.headers,
+      }));
+    }
+
     const response = await env.ASSETS.fetch(request);
     if (response.status !== 404) return response;
     if (!request.headers.get("accept")?.includes("text/html")) return response;
