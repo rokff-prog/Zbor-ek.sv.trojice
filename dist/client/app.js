@@ -1167,7 +1167,7 @@ function renderMass() {
     const selectIds = selectedIds.length ? selectedIds : [""];
     const selects = selectIds.map((selectedId, index) => {
       const options = state.songs
-        .filter((song) => song.inBook || song.id === selectedId)
+        .filter((song) => song.inBook && song.categories?.includes(part))
         .slice()
         .sort((a, b) => (a.songNumber || 9999) - (b.songNumber || 9999) || a.title.localeCompare(b.title, "sl"))
         .map((song) => `<option value="${song.id}" ${selectedId === song.id ? "selected" : ""}>${escapeHtml(`${song.songNumber || ""}. ${song.title}`)}</option>`)
