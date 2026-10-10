@@ -625,10 +625,6 @@ textarea {
   overflow: hidden;
 }
 
-.chord-workspace.editing {
-  grid-template-columns: minmax(420px, 1fr) 430px;
-}
-
 .chord-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -641,14 +637,6 @@ textarea {
   min-width: 0;
 }
 
-.chord-workspace.editing .chord-grid {
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-}
-
-.chord-card.active {
-  grid-column: span 2;
-}
-
 .chord-card {
   min-width: 0;
   overflow: hidden;
@@ -657,15 +645,6 @@ textarea {
 .chord-card.active .chord-sheet {
   outline: 4px solid var(--rose);
   outline-offset: 3px;
-}
-
-.chord-card.active .chord-sheet-body {
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-.chord-card.active .chord-sheet-head strong {
-  font-size: 24px;
 }
 
 .chord-page-button {
@@ -735,11 +714,68 @@ textarea {
 }
 
 .chord-editor {
-  position: sticky;
-  top: 12px;
-  max-height: calc(100vh - 24px);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: none;
   overflow: auto;
-  align-self: start;
+  padding: 24px;
+}
+
+.chord-editor-dialog {
+  width: min(1120px, calc(100vw - 32px));
+  height: min(900px, calc(100vh - 32px));
+  max-width: 1120px;
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: 0 24px 70px rgba(0, 45, 66, 0.34);
+}
+
+.chord-editor-dialog::backdrop {
+  background: rgba(0, 45, 66, 0.58);
+}
+
+.chord-editor-heading {
+  position: sticky;
+  top: -24px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -24px -24px 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 250, 240, 0.98);
+}
+
+.chord-editor-heading .section-label {
+  margin: 0;
+}
+
+.dialog-close {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: white;
+  color: var(--blue);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialog-close:hover,
+.dialog-close:focus-visible {
+  border-color: var(--rose);
+  color: var(--rose);
 }
 
 .songbook-editor.hidden,
@@ -1568,13 +1604,8 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .chord-workspace.editing,
   .chord-grid {
     grid-template-columns: 1fr;
-  }
-
-  .chord-card.active {
-    grid-column: auto;
   }
 
   .calendar-event {
@@ -1585,9 +1616,14 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .songbook-editor,
-  .chord-editor {
+  .songbook-editor {
     position: static;
+  }
+
+  .chord-editor-dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    max-height: calc(100vh - 16px);
   }
 }
 

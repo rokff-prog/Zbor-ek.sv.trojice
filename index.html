@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Zborček Sv. Trojice</title>
-    <link rel="stylesheet" href="styles.css?v=20261010-chords-canva" />
+    <link rel="stylesheet" href="styles.css?v=20261010-chord-modal" />
   </head>
   <body>
     <aside class="sidebar">
@@ -196,23 +196,6 @@
         <div id="chordImportStatus" class="import-status no-print"></div>
         <div class="chord-workspace">
           <div id="chordPages" class="chord-grid"></div>
-          <form id="chordEditor" class="editor chord-editor no-print">
-            <p class="section-label">Akordi</p>
-            <label>
-              Naslov
-              <input id="chordTitle" />
-            </label>
-            <label>
-              Prilepi ali uredi akorde
-              <textarea id="chordText" class="chord-textarea" spellcheck="false"></textarea>
-            </label>
-            <div id="inlineChordEditor" class="inline-chord-editor"></div>
-            <div class="form-actions">
-              <button id="transposeDown" class="ghost" type="button">-1</button>
-              <button id="transposeUp" class="ghost" type="button">+1</button>
-              <button id="saveChords" class="primary" type="submit">Shrani akorde</button>
-            </div>
-          </form>
         </div>
         <article id="chordPrint" class="chord-print"></article>
       </section>
@@ -334,6 +317,29 @@
         </form>
       </dialog>
 
+      <dialog id="chordEditorDialog" class="chord-editor-dialog no-print" aria-labelledby="chordEditorDialogTitle">
+        <form id="chordEditor" class="editor chord-editor">
+          <div class="chord-editor-heading">
+            <p id="chordEditorDialogTitle" class="section-label">Akordi</p>
+            <button id="closeChordEditor" class="dialog-close" type="button" aria-label="Zapri urejevalnik" title="Zapri">&times;</button>
+          </div>
+          <label>
+            Naslov
+            <input id="chordTitle" />
+          </label>
+          <label>
+            Prilepi ali uredi akorde
+            <textarea id="chordText" class="chord-textarea" spellcheck="false"></textarea>
+          </label>
+          <div id="inlineChordEditor" class="inline-chord-editor"></div>
+          <div class="form-actions">
+            <button id="transposeDown" class="ghost" type="button">-1</button>
+            <button id="transposeUp" class="ghost" type="button">+1</button>
+            <button id="saveChords" class="primary" type="submit">Shrani akorde</button>
+          </div>
+        </form>
+      </dialog>
+
       <dialog id="loginDialog" class="import-dialog no-print">
         <div class="editor import-dialog-panel login-panel">
           <p class="section-label">Skrbniški dostop</p>
@@ -367,6 +373,6 @@
     <script src="auth-config.js?v=20260915-public"></script>
     <script src="auth.js?v=20260916-password"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="app.js?v=20261010-chords-canva"></script>
+    <script src="app.js?v=20261010-chord-modal"></script>
   </body>
 </html>

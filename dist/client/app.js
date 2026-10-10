@@ -1644,8 +1644,6 @@ function renderChords() {
   if (!songs.some((song) => song.id === selectedChordSongId)) {
     selectedChordSongId = null;
   }
-  $(".chord-workspace")?.classList.toggle("editing", Boolean(selectedChordSongId));
-
   const pages = $("#chordPages");
   if (pages) {
     pages.innerHTML = songs.map((song, index) => {
@@ -2416,7 +2414,19 @@ function wireEvents() {
   $("#chordPages").addEventListener("click", (event) => {
     const button = event.target.closest("[data-chord-open]");
     if (!button) return;
-    selectedChordSongId = selectedChordSongId === button.dataset.chordOpen ? null : button.dataset.chordOpen;
+    selectedChordSongId = button.dataset.chordOpen;
+    activeChordInputIndex = null;
+    chordAddMode = false;
+    renderChords();
+    const dialog = $("#chordEditorDialog");
+    if (dialog && !dialog.open) dialog.showModal();
+  });
+  $("#closeChordEditor").addEventListener("click", () => $("#chordEditorDialog").close());
+  $("#chordEditorDialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  $("#chordEditorDialog").addEventListener("close", () => {
+    selectedChordSongId = null;
     activeChordInputIndex = null;
     chordAddMode = false;
     renderChords();
