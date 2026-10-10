@@ -13,6 +13,7 @@ const MASS_PARTS = [
 
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
+const CANVA_EMBED_URL = "https://www.canva.com/design/DAG0E3TU2Go/view?embed";
 const CANVA_PAGE_COUNT = 33;
 const CANVA_DB = "zborcek-canva-pages";
 const CANVA_STORE = "pages";
@@ -23,6 +24,40 @@ const GOOGLE_CALENDAR_TIMEZONE = "Europe/Ljubljana";
 const HOSTED_APP_ORIGIN = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site";
 const IS_GITHUB_PUBLIC = location.hostname.endsWith("github.io");
 const API_BASE = IS_GITHUB_PUBLIC ? HOSTED_APP_ORIGIN : "";
+
+// PDF page numbers are not song numbers. Keep this explicit so a new Canva
+// export reconnects each page to the same spreadsheet row every time.
+const SONGBOOK_PAGE_CATALOG = {
+  1: { title: "Pesmarica", cover: true },
+  2: { title: "Aleluja, naše veselje", songNumber: 2 },
+  3: { title: "Darujem ti ljubezen", songNumber: 7 },
+  4: { title: "Hozana na višavah (Svet)", songNumber: 60 },
+  5: { title: "On nosi cel svet", songNumber: 30 },
+  6: { title: "On nosi cel svet", songNumber: 30 },
+  7: { title: "Pesem vesela", songNumber: 31 },
+  8: { title: "Ves dan vso noč", songNumber: 49 },
+  9: { title: "Povej naprej", songNumber: 65 },
+  10: { title: "Če imate usta", songNumber: 64 },
+  11: { title: "Sem jaz", songNumber: 42 },
+  12: { title: "Gospod usmili se", songNumber: 62 },
+  13: { title: "Jagnje Božje", songNumber: 61 },
+  14: { title: "Vsa ljudstva", songNumber: 75 },
+  15: { title: "Poslušajte vsi ljudje", songNumber: 76 },
+  16: { title: "Glej zvezdice Božje", songNumber: 68 },
+  17: { title: "Tam stoji pa hlevček", songNumber: 69 },
+  18: { title: "Sveta noč", songNumber: 70 },
+  19: { title: "Kaj se vam zdi pastirci vi", songNumber: 72 },
+  20: { title: "Slavi ga", songNumber: 43 },
+  21: { title: "Ko čutiš to", songNumber: 16 },
+  22: { title: "Ti naša mati ljubljena", songNumber: 83 },
+  23: { title: "Naj te pozdravim", songNumber: 96 },
+  24: { title: "Kako si lepa (O Marija, O Marija)", songNumber: 77 },
+  25: { title: "Kličem \"svet si\" (Poklonim se)", songNumber: 15 },
+  26: { title: "Mamica je kakor zarja", unlisted: true },
+  27: { title: "Mi se imamo radi", unlisted: true },
+  28: { title: "Aleluja (Jezus Kristus je naš Rešenik)", songNumber: 93 },
+  29: { title: "Jezus, hvala za sonce", songNumber: 95 },
+};
 
 let canvaPageImages = new Map();
 let remoteSaveTimer = null;
@@ -512,8 +547,8 @@ function applyImportedChords(data) {
 
 const seedData = {
   songs: makeSeedSongs([
-    { title: "Aleluja Jubilate", page: 1, inBook: false, known: false, categories: ["Aleluja", "Velikonočne"] },
-    { title: "Aleluja, naše veselje", page: 2, inBook: true, known: true, categories: ["Aleluja", "Velikonočne"], chords: "C       F\nAlelu - aleluja,\nC       G\nAlelu - aleluja,\nC   G       C\nAleluja." },
+    { title: "Aleluja  Jubilate", page: 1, inBook: false, known: false, categories: ["Aleluja"] },
+    { title: "Aleluja, naše veselje", page: 2, inBook: true, known: true, categories: ["Aleluja"], chords: "C       F\nAlelu - aleluja,\nC       G\nAlelu - aleluja,\nC   G       C\nAleluja." },
     { title: "Bojim se samote", page: 3, inBook: false, known: false, categories: ["Vstopna", "Obhajilo", "Zaključek"] },
     { title: "Če letal bi", page: 4, inBook: false, known: false, categories: ["Vstopna", "Obhajilo", "Zaključek"] },
     { title: "Dal si čisto mi srce", page: 5, inBook: false, known: false, categories: ["Aleluja"] },
@@ -521,7 +556,7 @@ const seedData = {
     { title: "Darujem ti ljubezen", page: 7, inBook: true, known: true, categories: ["Darovanje"] },
     { title: "Hozana (Oče tebi izročam vse)", page: 8, inBook: false, known: false, categories: ["Slava"] },
     { title: "Hvalnico pojem Bogu", page: 9, inBook: false, known: false, categories: ["Slava"] },
-    { title: "Jezus Kristus je naš rešenik", page: 10, inBook: false, known: false, categories: ["Aleluja"] },
+    { title: "Jezus kritsus je naš rešenik", page: 10, inBook: false, known: false, categories: ["Aleluja"] },
     { title: "Jezus ljubi vse otroke", page: 11, inBook: false, known: false, categories: ["Vstopna", "Obhajilo", "Zaključek"] },
     { title: "Jezus moj ljubim te", page: 12, inBook: false, known: false, categories: ["Obhajilo"] },
     { title: "Jezus oprosti mi", page: 13, inBook: false, known: false, categories: ["Obhajilo", "Zaključek"] },
@@ -542,7 +577,7 @@ const seedData = {
     { title: "Oče tebi izročam se", page: 28, inBook: false, known: false, categories: ["Slava"] },
     { title: "Odrini na globoko", page: 29, inBook: false, known: false, categories: ["Vstopna", "Psalm", "Zaključek"] },
     { title: "On nosi ves svet", page: 30, inBook: true, known: true, categories: ["Vstopna", "Obhajilo", "Zaključek"] },
-    { title: "Pesem vesela naj gospoda slavi", page: 31, inBook: true, known: true, categories: ["Vstopna", "Velikonočne"] },
+    { title: "Pesem vesela naj gospoda slavi", page: 31, inBook: true, known: true, categories: ["Vstopna"] },
     { title: "Peter skala", page: 32, inBook: false, known: false, categories: ["Vstopna", "Psalm", "Zaključek"] },
     { title: "Bog je z nami (Petje ptičev)", page: 33, inBook: false, known: false, categories: ["Vstopna", "Zaključek"] },
     { title: "Poglej to lučko", page: 34, inBook: false, known: false, categories: ["Božične"] },
@@ -550,7 +585,7 @@ const seedData = {
     { title: "Povzdigujem tvoje ime", page: 36, inBook: false, known: false, categories: ["Slava", "Zaključek"] },
     { title: "Pridi k nam gospod", page: 37, inBook: false, known: false, categories: ["Vstopna", "Obhajilo"] },
     { title: "Pridi, sveti duh, luč srca", page: 38, inBook: false, known: false, categories: ["Vstopna"] },
-    { title: "Pričeval ljubezen bom", page: 39, inBook: false, known: false, categories: ["Vstopna", "Obhajilo", "Zaključek"] },
+    { title: "Priičeval ljubezen bom", page: 39, inBook: false, known: false, categories: ["Vstopna", "Obhajilo", "Zaključek"] },
     { title: "Rad bi te videl", page: 40, inBook: false, known: false, categories: ["Obhajilo", "Zaključek"] },
     { title: "Res velik si Bog", page: 41, inBook: false, known: false, categories: ["Obhajilo", "Zaključek"] },
     { title: "Sem jaz (družinica)", page: 42, inBook: true, known: true, categories: ["Vstopna", "Zaključek"] },
@@ -559,7 +594,7 @@ const seedData = {
     { title: "Ti si moj prijatelj", page: 45, inBook: false, known: false, categories: ["Obhajilo"] },
     { title: "Ti si ta luč sveta", page: 46, inBook: false, known: false, categories: ["Vstopna", "Obhajilo"] },
     { title: "Tu sta dva krokodila", page: 47, inBook: false, known: false, categories: ["Vstopna", "Psalm", "Obhajilo"] },
-    { title: "Tu smo zbrani", page: 48, inBook: false, known: false, categories: ["Vstopna", "Gospod usmili se"] },
+    { title: "Tu smo zbrani", page: 48, inBook: false, known: false, categories: ["Vstopna", "Slava"] },
     { title: "Ves dan vso noč", page: 49, inBook: true, known: true, categories: ["Vstopna", "Zaključek"] },
     { title: "Vlij mi olja", page: 50, inBook: false, known: false, categories: ["Slava"] },
     { title: "Zamenjam vse skrbi", page: 51, inBook: false, known: false, categories: ["Zaključek"] },
@@ -579,10 +614,11 @@ const seedData = {
     { title: "Povej naprej!", page: 65, inBook: true, known: true, link: "https://jubilate.donbosko.si/song/450", categories: ["Zaključek"] },
     { title: "Tam stoji pa hlevček", page: 66, inBook: true, known: true, categories: ["Božične"] },
     { title: "Glej zvezdice Božje", page: 68, inBook: true, known: true, categories: ["Božične"] },
+    { title: "Tam stoji pa hlevček", page: 69, inBook: true, known: true, categories: ["Obhajilo", "Božične"] },
     { title: "Sveta noč", page: 70, inBook: true, known: true, categories: ["Zaključek", "Božične"] },
     { title: "Danes je zasijala luč", page: 71, inBook: false, known: false, categories: ["Božične"] },
     { title: "Kaj se vam zdi, pastirci vi", page: 72, inBook: true, known: true, categories: ["Slava", "Božične"] },
-    { title: "Jezus adoramus te", page: 73, inBook: false, known: false, categories: ["Božične"] },
+    { title: "Jezus adoramuas te", page: 73, inBook: false, known: false, categories: ["Božične"] },
     { title: "Si videl zvezdice", page: 74, inBook: false, known: false, categories: ["Božične"] },
     { title: "Vsa ljudstva ploskajte", page: 75, inBook: true, known: true, link: "https://jubilate.donbosko.si/song/331", categories: ["Psalm"] },
     { title: "Poslušajte vsi ljudje", page: 76, inBook: true, known: true, categories: ["Božične"] },
@@ -591,15 +627,18 @@ const seedData = {
     { title: "Lepa si", page: 79, inBook: false, known: false, categories: ["Vstopna", "Marijine"] },
     { title: "Mali cvet", page: 80, inBook: false, known: false, categories: ["Vstopna", "Marijine"] },
     { title: "Ti, ki si na svet prinesla sonce (Zate, Marija)", page: 81, inBook: false, known: false, categories: ["Vstopna", "Marijine"] },
+    { title: "Na poti skozi življenje", page: 82, inBook: false, known: false, categories: ["Vstopna", "Marijine"] },
     { title: "Ti naša mati ljubljena", page: 83, inBook: false, known: false, categories: ["Vstopna", "Marijine"] },
     { title: "Ti si šel na križ", page: 84, inBook: false, known: false, categories: ["Postne"] },
-    { title: "Vstal je kakor je rekel", page: 86, inBook: false, known: false, categories: ["Velikonočne"] },
-    { title: "Sta šla učenca (Emavs)", page: 87, inBook: false, known: false, categories: ["Velikonočne"] },
-    { title: "Spremenil srca je", page: 88, inBook: false, known: false, categories: ["Velikonočne"] },
-    { title: "O moj Bog, dopusti mi", page: 90, inBook: false, known: false, categories: ["Velikonočne"] },
-    { title: "Da, Gospod, dober si", page: 91, inBook: false, known: false, categories: ["Velikonočne"] },
-    { title: "Aleluja (Taizejska)", page: 92, inBook: false, known: false, categories: ["Psalm", "Velikonočne"] },
-    { title: "Aleluja (Jezus Kristus je naš Rešenik)", page: 93, inBook: true, known: true, categories: ["Psalm", "Velikonočne"] },
+    { title: "Jezus oprosti mi", page: 85, inBook: false, known: false, link: "https://jubilate.donbosko.si/song/95", categories: ["Postne"] },
+    { title: "Vstal je kakor je rekel", page: 86, inBook: false, known: false, categories: [] },
+    { title: "Sta šla učenca (Emavs)", page: 87, inBook: false, known: false, categories: [] },
+    { title: "Spremenil srca je", page: 88, inBook: false, known: false, categories: [] },
+    { title: "Povzdigujem tvoje ime", page: 89, inBook: false, known: false, categories: [] },
+    { title: "O moj Bog, dopusti mi", page: 90, inBook: false, known: false, categories: [] },
+    { title: "Da, Gospod, dober si", page: 91, inBook: false, known: false, categories: [] },
+    { title: "Aleluja (Taizejska)", page: 92, inBook: false, known: false, categories: ["Aleluja"] },
+    { title: "Aleluja (Jezus Kristus je naš Rešenik)", page: 93, inBook: true, known: true, categories: ["Aleluja"] },
     { title: "Ko bi ljudje ljubili se", page: 94, inBook: false, known: false, categories: ["Božične"] },
     { title: "Jezus, hvala za sonce", page: 95, inBook: true, known: true, categories: ["Zaključek"] },
     { title: "Naj te pozdravim", page: 96, inBook: true, known: true, categories: ["Vstopna", "Marijine"] },
@@ -644,6 +683,7 @@ let selectedSongbookPageId = null;
 let selectedChordSongId = null;
 let currentChordTokens = [];
 let activeChordInputIndex = null;
+let chordAddMode = false;
 let visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : new Date().toISOString().slice(0, 7);
 let isAdminView = Boolean(window.zborcekAuth?.state?.isAdmin);
 migrateState();
@@ -872,10 +912,14 @@ async function loadCanvaPageImages() {
       .filter((song) => song.imageDataUrl)
       .map((song) => [Number(song.page || song.number), song.imageDataUrl]));
     state.canvaPages = bundledSongs.map((song, index) => ({
+      ...SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)],
       id: `canva-page-${Number(song.page || index + 1)}`,
       page: Number(song.page || index + 1),
       canvaDbPage: Number(song.page || index + 1),
-      title: song.title || `Canva stran ${index + 1}`,
+      title: SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)]?.title || song.title || `Canva stran ${index + 1}`,
+      songId: SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)]?.songNumber
+        ? songByNumber(SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)].songNumber)?.id
+        : state.songs.find((item) => normalizeTitle(item.title) === normalizeTitle(SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)]?.title))?.id,
       copies: 0,
     })).sort((a, b) => a.page - b.page);
     return;
@@ -903,6 +947,24 @@ function setPdfImportStatus(message) {
   if (status) status.textContent = message;
 }
 
+function showLiveCanva({ reload = false } = {}) {
+  const panel = $("#canvaLivePanel");
+  const frame = $("#canvaLiveFrame");
+  const button = $("#showCanvaLive");
+  if (!panel || !frame || !button) return;
+
+  const shouldShow = reload || panel.hidden;
+  panel.hidden = !shouldShow;
+  button.setAttribute("aria-expanded", String(shouldShow));
+  button.textContent = shouldShow ? "Skrij Canvo" : "Canva v živo";
+  if (!shouldShow) return;
+
+  frame.src = `${CANVA_EMBED_URL}&refresh=${Date.now()}`;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  const status = $("#syncStatus");
+  if (status) status.textContent = "Zahtevana je osvežitev Canva pogleda";
+}
+
 function syncCanvaSongbook({ silent = false } = {}) {
   const seen = new Set();
   const uniqueSongs = [];
@@ -924,7 +986,7 @@ function syncCanvaSongbook({ silent = false } = {}) {
     designUrl: CANVA_DESIGN_URL,
     pageCount: CANVA_PAGE_COUNT,
     lastChecked: new Date().toISOString(),
-    note: "Statični prototip deduplicira po naslovu. Živa Canva sinhronizacija potrebuje backend.",
+    note: "Canva v živo prikaže najnovejšo shranjeno različico pesmarice.",
   };
   ensureSongbookCopies();
   persist();
@@ -932,13 +994,17 @@ function syncCanvaSongbook({ silent = false } = {}) {
   const status = $("#syncStatus");
   if (status) {
     const importedCount = state.songs.filter((song) => song.inBook).length;
-    status.textContent = `Canva: ${CANVA_PAGE_COUNT} strani, ${importedCount} povezanih pesmi`;
+    status.textContent = `Canva v živo je pripravljena, ${importedCount} pesmi je povezanih za tisk`;
   }
   if (!silent) renderAll();
 }
 
 function songById(id) {
   return state.songs.find((song) => song.id === id);
+}
+
+function songByNumber(number) {
+  return state.songs.find((song) => Number(song.songNumber) === Number(number));
 }
 
 function songbookSongForPage(page) {
@@ -958,11 +1024,26 @@ function nextSongNumber() {
 }
 
 function numberForSongbookItem(item, fallback = item?.page || "") {
+  if (item?.unlisted) return "";
+  if (item?.cover) return 1;
   const song = state.canvaPages?.length ? songbookSongForPage(item) : songById(item.id);
   return song?.songNumber || item.songNumber || fallback;
 }
 
 function ensureSongForSongbookPage(page) {
+  if (page.cover) {
+    return {
+      id: "songbook-cover",
+      songNumber: 1,
+      title: page.title || "Pesmarica",
+      categories: [],
+      link: "",
+      page: page.page,
+      canvaPage: page.page,
+      inBook: false,
+      lyrics: "",
+    };
+  }
   let song = songbookSongForPage(page);
   if (!song) {
     song = {
@@ -1376,7 +1457,7 @@ function renderSongbookEditor() {
   selectedSongbookPageId = page.id;
   const song = ensureSongForSongbookPage(page);
   form.classList.remove("empty", "hidden");
-  $("#songbookTitle").value = song.title;
+  $("#songbookTitle").value = page.title || song.title;
   $("#songbookPageNumber").value = page.page || song.page || "";
   $("#songbookLink").value = song.link || "";
   $("#songbookMassParts").innerHTML = MASS_PARTS.map((part) => `
@@ -1437,7 +1518,9 @@ async function importCanvaPdf(file) {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       setPdfImportStatus(`Uvažam stran ${pageNumber} od ${pdf.numPages} ...`);
       const page = await pdf.getPage(pageNumber);
-      const title = await extractPdfPageTitle(page, pageNumber);
+      const catalogEntry = SONGBOOK_PAGE_CATALOG[pageNumber];
+      const extractedTitle = await extractPdfPageTitle(page, pageNumber);
+      const title = catalogEntry?.title || extractedTitle;
       const viewport = page.getViewport({ scale: 2.3 });
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
@@ -1447,10 +1530,14 @@ async function importCanvaPdf(file) {
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
       await saveCanvaPageImage(pageNumber, blob);
       importedPages.push({
+        ...catalogEntry,
         id: `canva-page-${pageNumber}`,
         page: pageNumber,
         canvaDbPage: pageNumber,
         title,
+        songId: catalogEntry?.songNumber
+          ? songByNumber(catalogEntry.songNumber)?.id
+          : state.songs.find((song) => normalizeTitle(song.title) === normalizeTitle(title))?.id,
         copies: 0,
       });
     }
@@ -1679,7 +1766,7 @@ function normalizeChordInput(text) {
     .replace(/\*\*([^*\n]+)\*\*/g, (_, chord) => isChordToken(chord) ? `[${normalizeChordName(chord)}]` : `**${chord}**`);
   if (markdownConverted.includes("[")) return markdownConverted;
   if (markdownConverted.split("\n").some((line) => looksLikeChordLine(line))) return convertChordSheetToInline(markdownConverted);
-  return convertCompactChordText(markdownConverted);
+  return markdownConverted;
 }
 
 function readCompactChord(line, index) {
@@ -1856,10 +1943,14 @@ function renderInlineChordEditor() {
   const box = $("#inlineChordEditor");
   const textarea = $("#chordText");
   if (!box || !textarea) return;
+  box.classList.toggle("adding-chord", chordAddMode);
   textarea.value = normalizeChordInput(textarea.value);
   currentChordTokens = tokenizeInlineChords(textarea.value);
   box.innerHTML = `
-    <p class="inline-help">Akord primeš in ga spustiš nad pravo črko. Za nov akord klikni črko in ga vpiši nad njo.</p>
+    <div class="inline-chord-toolbar">
+      <button class="chord-add-button${chordAddMode ? " active" : ""}" type="button" data-chord-add-mode aria-pressed="${chordAddMode}" title="Dodaj akord">+</button>
+      <p class="inline-help">${chordAddMode ? "Klikni črko, nad katero želiš dodati akord." : "Akord premakneš z vlečenjem. Za nov akord najprej klikni +."}</p>
+    </div>
     <div class="chord-sheet editable-chord-sheet">
       <div class="chord-sheet-head">
         <span>Urejanje</span>
@@ -2327,6 +2418,7 @@ function wireEvents() {
     if (!button) return;
     selectedChordSongId = selectedChordSongId === button.dataset.chordOpen ? null : button.dataset.chordOpen;
     activeChordInputIndex = null;
+    chordAddMode = false;
     renderChords();
   });
   $("#chordEditor").addEventListener("submit", (event) => {
@@ -2338,6 +2430,13 @@ function wireEvents() {
   $("#chordText").addEventListener("input", renderInlineChordEditor);
   $("#inlineChordEditor").addEventListener("click", (event) => {
     if (event.target.closest("[data-inline-chord-input]")) return;
+    const addButton = event.target.closest("[data-chord-add-mode]");
+    if (addButton) {
+      chordAddMode = !chordAddMode;
+      activeChordInputIndex = null;
+      renderInlineChordEditor();
+      return;
+    }
     const action = event.target.closest("[data-chord-action]");
     const word = event.target.closest("[data-drop-word]");
     if (!action && !word) return;
@@ -2348,9 +2447,11 @@ function wireEvents() {
       token.chord = "";
       activeChordInputIndex = null;
     } else {
+      if (!chordAddMode) return;
       const index = Number(word.dataset.dropWord);
       if (currentChordTokens[index]?.type !== "char") return;
       activeChordInputIndex = index;
+      chordAddMode = false;
     }
 
     $("#chordText").value = tokensToInlineText(currentChordTokens);
@@ -2370,9 +2471,17 @@ function wireEvents() {
   });
   $("#inlineChordEditor").addEventListener("keydown", (event) => {
     const input = event.target.closest("[data-inline-chord-input]");
-    if (!input || event.key !== "Enter") return;
-    event.preventDefault();
-    input.blur();
+    if (!input) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      activeChordInputIndex = null;
+      renderInlineChordEditor();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+    }
   });
   $("#inlineChordEditor").addEventListener("dragstart", (event) => {
     const chord = event.target.closest("[data-drag-chord]");
@@ -2521,8 +2630,8 @@ function wireEvents() {
     const page = currentSongbookPage();
     if (!page) return;
     const song = ensureSongForSongbookPage(page);
-    song.title = $("#songbookTitle").value.trim() || `Canva stran ${page.page}`;
-    page.title = song.title;
+    page.title = $("#songbookTitle").value.trim() || `Canva stran ${page.page}`;
+    if (page.unlisted) song.title = page.title;
     page.page = Number($("#songbookPageNumber").value || page.page);
     song.page = page.page;
     song.canvaPage = page.page;
@@ -2561,7 +2670,12 @@ function wireEvents() {
     renderAll();
   });
 
-  $("#syncCanva").addEventListener("click", () => syncCanvaSongbook());
+  $("#showCanvaLive").addEventListener("click", () => showLiveCanva());
+  $("#reloadCanvaLive").addEventListener("click", () => showLiveCanva({ reload: true }));
+  $("#syncCanva").addEventListener("click", () => {
+    setView("songbook");
+    showLiveCanva({ reload: true });
+  });
 }
 
 function renderAll() {
