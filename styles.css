@@ -239,6 +239,10 @@ textarea {
   margin-left: auto;
 }
 
+.songbook-toolbar > #showCanvaLive {
+  order: 3;
+}
+
 .songbook-toolbar > .canva-open-link {
   order: 4;
 }
@@ -402,6 +406,44 @@ textarea {
   margin: 10px 0 0;
   color: var(--blue);
   font-weight: 800;
+}
+
+.canva-live-panel {
+  margin: 14px 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.canva-live-panel[hidden] {
+  display: none;
+}
+
+.canva-live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.canva-live-head div {
+  display: grid;
+  gap: 2px;
+}
+
+.canva-live-head small {
+  color: var(--muted);
+}
+
+.canva-live-panel iframe {
+  display: block;
+  width: 100%;
+  min-height: 72vh;
+  border: 0;
+  background: #f5f7fa;
 }
 
 .slot-grid {
@@ -746,8 +788,9 @@ textarea {
   display: inline-block;
   position: relative;
   min-width: 100%;
-  margin: 9px 0 15px;
-  padding-top: 24px;
+  min-height: 2.9em;
+  margin: 8px 0 12px;
+  padding-top: 36px;
   white-space: nowrap;
   font-family: Consolas, "Courier New", monospace;
   overflow: hidden;
@@ -780,9 +823,20 @@ textarea {
   height: 100%;
 }
 
+.char-target-layer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.char-target-layer .char-drop-target {
+  pointer-events: auto;
+}
+
 .lyric-run {
   position: relative;
   z-index: 1;
+  display: block;
+  line-height: 1.55;
   white-space: pre;
 }
 
@@ -815,6 +869,33 @@ textarea {
   font-weight: 700;
 }
 
+.inline-chord-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chord-add-button {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid var(--gold);
+  border-radius: 6px;
+  background: white;
+  color: var(--blue);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chord-add-button.active {
+  border-color: var(--rose);
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 31, 92, 0.16);
+}
+
 .inline-token-grid {
   display: flex;
   flex-wrap: wrap;
@@ -831,6 +912,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  z-index: 3;
   cursor: grab;
   border: 0;
 }
@@ -851,13 +933,21 @@ textarea {
 
 .char-drop-target {
   position: absolute;
-  top: 24px;
+  top: 36px;
   width: 1ch;
   height: 1.5em;
   border: 0;
   background: transparent;
   padding: 0;
-  cursor: text;
+  cursor: default;
+}
+
+.adding-chord .char-drop-target {
+  cursor: crosshair;
+}
+
+.adding-chord .char-drop-target:hover {
+  background: rgba(255, 241, 184, 0.72);
 }
 
 .char-drop-target.drop-ready {
@@ -996,6 +1086,12 @@ textarea {
 
 .editable-chord-body {
   font-size: 18px;
+}
+
+.editable-chord-body .inline-chord-line {
+  min-height: 3.1em;
+  margin: 8px 0 12px;
+  padding-top: 36px;
 }
 
 .empty-chord-slot {

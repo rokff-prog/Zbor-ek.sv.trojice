@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Zborček Sv. Trojice</title>
-    <link rel="stylesheet" href="styles.css?v=20260915-github1" />
+    <link rel="stylesheet" href="styles.css?v=20261010-chords-canva" />
   </head>
   <body>
     <aside class="sidebar">
@@ -25,7 +25,7 @@
       <div class="source-box admin-only">
         <span>Vir</span>
         <strong>Google Sheet + Docs + Canva</strong>
-        <button id="syncCanva" class="sync-button">Preveri Canvo</button>
+        <button id="syncCanva" class="sync-button">Osveži Canvo</button>
         <small id="syncStatus">Canva pesmarica: pripravljeno</small>
       </div>
     </aside>
@@ -142,13 +142,24 @@
             Uvozi PDF iz Canve
             <input id="importCanvaPdf" type="file" accept="application/pdf" />
           </label>
+          <button id="showCanvaLive" class="ghost" type="button" aria-expanded="false">Canva v živo</button>
           <button id="saveSongbookToSongs" class="ghost push-right admin-only" type="button">Shrani pesmarico</button>
           <button id="printSongbook" class="primary">Natisni pesmarico</button>
           <a class="canva-open-link admin-only" href="https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit" target="_blank" rel="noreferrer">Odpri pesmarico v Canvi</a>
         </div>
         <div id="pdfImportStatus" class="import-status no-print admin-only"></div>
+        <section id="canvaLivePanel" class="canva-live-panel no-print" hidden>
+          <div class="canva-live-head">
+            <div>
+              <strong>Pesmarica iz Canve</strong>
+              <small>Nove strani se pokažejo takoj po osvežitvi.</small>
+            </div>
+            <button id="reloadCanvaLive" class="ghost" type="button">Osveži Canvo</button>
+          </div>
+          <iframe id="canvaLiveFrame" title="Pesmarica Zborček v Canvi" loading="lazy" allowfullscreen></iframe>
+        </section>
         <div class="songbook-note no-print admin-only">
-          Pesmi iz Canve so prikazane kot originalne tiskalne strani iz mape assets/canva-songbook. Vpiši število izvodov pri posamezni pesmi; tisk je pripravljen po 2 strani na en A4 list.
+          Pogled Canva v živo se osveži neposredno iz Canve. Za tisk in urejanje posameznih strani uporabi izvoz PDF ter gumb Uvozi PDF iz Canve.
         </div>
         <div class="songbook-workspace">
           <div id="songbookPages" class="songbook-grid"></div>
@@ -356,6 +367,6 @@
     <script src="auth-config.js?v=20260915-public"></script>
     <script src="auth.js?v=20260916-password"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="app.js?v=20260916-mass-parts"></script>
+    <script src="app.js?v=20261010-chords-canva"></script>
   </body>
 </html>
