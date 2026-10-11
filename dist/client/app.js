@@ -2411,36 +2411,132 @@ function wireMobileTabSwipe() {
   if (!surface) return;
   let startX = null;
   let startY = null;
+  let startTime = 0;
+  let horizontalDrag = false;
+  let draggedView = null;
   let suppressClickUntil = 0;
   const ignoresSwipe = (target) => Boolean(target.closest("input, select, textarea, label, a, dialog, .stepper, .inline-chord-line"));
 
+  const clearDragStyles = (view) => {
+    if (!view) return;
+    view.classList.remove("swipe-dragging", "swipe-settling");
+    view.style.removeProperty("transform");
+    view.style.removeProperty("transform-origin");
+    view.style.removeProperty("opacity");
+    view.style.removeProperty("transition");
+  };
+
+  const settleBack = () => {
+    const view = draggedView;
+    if (!view) return;
+    view.classList.remove("swipe-dragging");
+    view.classList.add("swipe-settling");
+    view.style.transition = "transform 180ms ease-out, opacity 180ms ease-out";
+    view.style.transform = "translate3d(0, 0, 0) rotateY(0deg)";
+    view.style.opacity = "1";
+    setTimeout(() => clearDragStyles(view), 190);
+  };
+
+  const resetGesture = () => {
+    startX = null;
+    startY = null;
+    startTime = 0;
+    horizontalDrag = false;
+    draggedView = null;
+  };
+
   surface.addEventListener("touchstart", (event) => {
     if (window.innerWidth > 860 || event.touches.length !== 1 || ignoresSwipe(event.target)) {
-      startX = null;
-      startY = null;
+      resetGesture();
       return;
     }
     startX = event.touches[0].clientX;
     startY = event.touches[0].clientY;
+    startTime = performance.now();
+    draggedView = document.querySelector(".view.active");
   }, { passive: true });
 
+  surface.addEventListener("touchmove", (event) => {
+    if (startX === null || startY === null || event.touches.length !== 1 || !draggedView) return;
+    const deltaX = event.touches[0].clientX - startX;
+    const deltaY = event.touches[0].clientY - startY;
+    if (!horizontalDrag) {
+      if (Math.abs(deltaY) > 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        resetGesture();
+        return;
+      }
+      if (Math.abs(deltaX) < 6 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+      horizontalDrag = true;
+      draggedView.classList.add("swipe-dragging");
+    }
+
+    event.preventDefault();
+    const offset = Math.max(-110, Math.min(110, deltaX * 0.72));
+    const rotation = Math.max(-3.5, Math.min(3.5, -offset / 28));
+    draggedView.style.transformOrigin = offset < 0 ? "left center" : "right center";
+    draggedView.style.transform = `translate3d(${offset}px, 0, 0) rotateY(${rotation}deg)`;
+    draggedView.style.opacity = String(Math.max(0.72, 1 - Math.abs(offset) / 380));
+  }, { passive: false });
+
   surface.addEventListener("touchend", (event) => {
-    if (startX === null || startY === null || event.changedTouches.length !== 1) return;
+    if (startX === null || startY === null || event.changedTouches.length !== 1) {
+      settleBack();
+      resetGesture();
+      return;
+    }
     const deltaX = event.changedTouches[0].clientX - startX;
     const deltaY = event.changedTouches[0].clientY - startY;
-    startX = null;
-    startY = null;
-    if (Math.abs(deltaX) < 65 || Math.abs(deltaX) < Math.abs(deltaY) * 1.35) return;
+    const elapsed = Math.max(1, performance.now() - startTime);
+    const velocity = Math.abs(deltaX) / elapsed;
+    const swipeDistance = Math.min(38, window.innerWidth * 0.09);
+    if (!horizontalDrag || Math.abs(deltaX) < 16 || (Math.abs(deltaX) < swipeDistance && velocity < 0.3) || Math.abs(deltaX) < Math.abs(deltaY) * 1.15) {
+      settleBack();
+      resetGesture();
+      return;
+    }
 
     const tabs = $$(".nav-item").filter((button) => getComputedStyle(button).display !== "none");
     const currentIndex = tabs.findIndex((button) => button.classList.contains("active"));
     const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= tabs.length) return;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= tabs.length) {
+      settleBack();
+      resetGesture();
+      return;
+    }
     event.preventDefault();
     suppressClickUntil = Date.now() + 450;
-    tabs[nextIndex].click();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const outgoingView = draggedView;
+    const direction = deltaX < 0 ? -1 : 1;
+    outgoingView.classList.remove("swipe-dragging");
+    outgoingView.classList.add("swipe-settling");
+    outgoingView.style.transition = "transform 145ms ease-in, opacity 145ms ease-in";
+    outgoingView.style.transform = `translate3d(${direction * 90}px, 0, 0) rotateY(${direction * 4}deg)`;
+    outgoingView.style.opacity = "0.35";
+
+    setTimeout(() => {
+      clearDragStyles(outgoingView);
+      tabs[nextIndex].click();
+      window.scrollTo({ top: 0, behavior: "auto" });
+      const incomingView = document.querySelector(".view.active");
+      if (!incomingView) return;
+      incomingView.classList.add("swipe-settling");
+      incomingView.style.transition = "none";
+      incomingView.style.transform = `translate3d(${-direction * 54}px, 0, 0) rotateY(${-direction * 2.5}deg)`;
+      incomingView.style.opacity = "0.45";
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        incomingView.style.transition = "transform 210ms ease-out, opacity 210ms ease-out";
+        incomingView.style.transform = "translate3d(0, 0, 0) rotateY(0deg)";
+        incomingView.style.opacity = "1";
+        setTimeout(() => clearDragStyles(incomingView), 220);
+      }));
+    }, 125);
+    resetGesture();
   }, { passive: false });
+
+  surface.addEventListener("touchcancel", () => {
+    settleBack();
+    resetGesture();
+  }, { passive: true });
 
   surface.addEventListener("click", (event) => {
     if (Date.now() < suppressClickUntil) {

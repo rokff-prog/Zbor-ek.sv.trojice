@@ -1,11 +1,11 @@
-const CACHE_NAME = "zborcek-app-v7";
+const CACHE_NAME = "zborcek-app-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20261011-mobile-print",
+  "./styles.css?v=20261011-smooth-swipe",
   "./auth-config.js?v=20260915-public",
   "./auth.js?v=20260916-password",
-  "./app.js?v=20261011-mobile-print",
+  "./app.js?v=20261011-smooth-swipe",
   "./install-app.js?v=20261011-canva-fix",
   "./zborcek-predstavitev-pesmarica.js?v=20260915-public",
   "./manifest.webmanifest",
