@@ -2462,7 +2462,7 @@ function wireMobileTabSwipe() {
   let horizontalDrag = false;
   let draggedView = null;
   let suppressClickUntil = 0;
-  const ignoresSwipe = (target) => Boolean(target.closest("input, select, textarea, label, a, dialog, .stepper, .inline-chord-line"));
+  const ignoresSwipe = (target) => Boolean(target.closest("dialog, .inline-chord-line, [data-no-tab-swipe]"));
 
   const clearDragStyles = (view) => {
     if (!view) return;
@@ -2501,7 +2501,7 @@ function wireMobileTabSwipe() {
     startY = event.touches[0].clientY;
     startTime = performance.now();
     draggedView = document.querySelector(".view.active");
-  }, { passive: true });
+  }, { passive: true, capture: true });
 
   surface.addEventListener("touchmove", (event) => {
     if (startX === null || startY === null || event.touches.length !== 1 || !draggedView) return;
@@ -2523,7 +2523,7 @@ function wireMobileTabSwipe() {
     draggedView.style.transformOrigin = offset < 0 ? "left center" : "right center";
     draggedView.style.transform = `translate3d(${offset}px, 0, 0) rotateY(${rotation}deg)`;
     draggedView.style.opacity = String(Math.max(0.72, 1 - Math.abs(offset) / 380));
-  }, { passive: false });
+  }, { passive: false, capture: true });
 
   surface.addEventListener("touchend", (event) => {
     if (startX === null || startY === null || event.changedTouches.length !== 1) {
@@ -2578,12 +2578,12 @@ function wireMobileTabSwipe() {
       }));
     }, 125);
     resetGesture();
-  }, { passive: false });
+  }, { passive: false, capture: true });
 
   surface.addEventListener("touchcancel", () => {
     settleBack();
     resetGesture();
-  }, { passive: true });
+  }, { passive: true, capture: true });
 
   surface.addEventListener("click", (event) => {
     if (Date.now() < suppressClickUntil) {

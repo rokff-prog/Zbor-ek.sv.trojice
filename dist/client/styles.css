@@ -1677,6 +1677,10 @@ th {
     transform-style: preserve-3d;
   }
 
+  .view.active :is(input, select, textarea, button, a, label) {
+    touch-action: pan-y;
+  }
+
   .app {
     overflow-x: hidden;
     perspective: 1200px;
