@@ -2376,6 +2376,36 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
+function printInMode(modeClass, orientation) {
+  const override = document.createElement("style");
+  override.id = "print-orientation-override";
+  override.media = "print";
+  override.textContent = `@page { size: A4 ${orientation} !important; margin: 0 !important; }`;
+  document.querySelector("#print-orientation-override")?.remove();
+  document.head.append(override);
+  document.body.classList.add(modeClass);
+
+  const printMedia = window.matchMedia("print");
+  let cleanupTimer;
+  const cleanup = () => {
+    document.body.classList.remove(modeClass);
+    override.remove();
+    clearTimeout(cleanupTimer);
+    window.removeEventListener("afterprint", cleanup);
+    if (printMedia.removeEventListener) printMedia.removeEventListener("change", handlePrintMedia);
+    else printMedia.removeListener?.(handlePrintMedia);
+  };
+  const handlePrintMedia = (event) => {
+    if (!event.matches) cleanup();
+  };
+
+  window.addEventListener("afterprint", cleanup, { once: true });
+  if (printMedia.addEventListener) printMedia.addEventListener("change", handlePrintMedia);
+  else printMedia.addListener?.(handlePrintMedia);
+  cleanupTimer = setTimeout(cleanup, 120000);
+  requestAnimationFrame(() => window.print());
+}
+
 function wireMobileTabSwipe() {
   const surface = document.querySelector(".app");
   if (!surface) return;
@@ -2678,9 +2708,7 @@ function wireEvents() {
     }
     renderChordPrint(songs);
     $("#chordPrintDialog").close();
-    document.body.classList.add("printing-chords");
-    window.print();
-    setTimeout(() => document.body.classList.remove("printing-chords"), 500);
+    printInMode("printing-chords", "portrait");
   });
   $("#openChordImport").addEventListener("click", () => {
     $("#chordImportText").value = "";
@@ -2778,9 +2806,7 @@ function wireEvents() {
   });
   $("#printSongbook").addEventListener("click", () => {
     renderSongbookPrint();
-    document.body.classList.add("printing-songbook");
-    window.print();
-    setTimeout(() => document.body.classList.remove("printing-songbook"), 500);
+    printInMode("printing-songbook", "landscape");
   });
   $("#importCanvaPdf").addEventListener("change", (event) => importCanvaPdf(event.target.files[0]));
   $("#saveSongbookToSongs").addEventListener("click", saveSongbookToSongs);

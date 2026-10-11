@@ -2042,9 +2042,9 @@ th {
   }
 
   .songbook-print-sheet {
-    page: auto;
-    width: 296mm;
-    height: 209mm;
+    page: songbook;
+    width: 297mm;
+    height: 210mm;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0;
@@ -2059,6 +2059,7 @@ th {
   }
 
   .songbook-print-page {
+    page: songbook;
     position: relative;
     min-height: 0;
     break-inside: avoid;
