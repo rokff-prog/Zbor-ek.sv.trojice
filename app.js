@@ -895,7 +895,7 @@ async function saveCanvaPageImage(page, blob) {
   db.close();
 }
 
-async function loadCanvaPageImages() {
+async function loadCanvaPageRecords() {
   const db = await openCanvaDb();
   const records = await new Promise((resolve, reject) => {
     const tx = db.transaction(CANVA_STORE, "readonly");
@@ -904,6 +904,51 @@ async function loadCanvaPageImages() {
     request.onerror = () => reject(request.error);
   });
   db.close();
+  return records;
+}
+
+async function replaceCanvaPageImages(records) {
+  const db = await openCanvaDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(CANVA_STORE, "readwrite");
+    const store = tx.objectStore(CANVA_STORE);
+    store.clear();
+    records.forEach((record) => store.put(record));
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function hashCanvaImage(blob) {
+  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function getCurrentCanvaPageHashes(records) {
+  const hashes = new Map();
+  await Promise.all(records.map(async (record) => {
+    hashes.set(Number(record.page), record.hash || await hashCanvaImage(record.blob));
+  }));
+
+  const pages = state.canvaPages || [];
+  await Promise.all(pages.map(async (page) => {
+    const pageNumber = Number(page.canvaDbPage || page.page);
+    if (!pageNumber || hashes.has(pageNumber)) return;
+    const imageUrl = canvaPageImages.get(pageNumber);
+    if (!imageUrl) return;
+    try {
+      const response = await fetch(imageUrl);
+      if (response.ok) hashes.set(pageNumber, await hashCanvaImage(await response.blob()));
+    } catch {
+      // A missing old preview simply means that this page will count as new.
+    }
+  }));
+  return hashes;
+}
+
+async function loadCanvaPageImages() {
+  const records = await loadCanvaPageRecords();
 
   const bundledSongs = window.ZBORCEK_SONGBOOK?.songs || [];
   if (!records.length && bundledSongs.length) {
@@ -1494,7 +1539,13 @@ async function importCanvaPdf(file) {
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: buffer }).promise;
 
+    const previousRecords = await loadCanvaPageRecords();
+    const previousHashes = await getCurrentCanvaPageHashes(previousRecords);
     const importedPages = [];
+    const importedImages = [];
+    let addedCount = 0;
+    let changedCount = 0;
+    let unchangedCount = 0;
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       setPdfImportStatus(`Uvažam stran ${pageNumber} od ${pdf.numPages} ...`);
@@ -1509,7 +1560,11 @@ async function importCanvaPdf(file) {
       canvas.height = Math.floor(viewport.height);
       await page.render({ canvasContext: context, viewport }).promise;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-      await saveCanvaPageImage(pageNumber, blob);
+      const hash = await hashCanvaImage(blob);
+      if (!previousHashes.has(pageNumber)) addedCount += 1;
+      else if (previousHashes.get(pageNumber) === hash) unchangedCount += 1;
+      else changedCount += 1;
+      importedImages.push({ page: pageNumber, blob, hash, updatedAt: Date.now() });
       importedPages.push({
         ...catalogEntry,
         id: `canva-page-${pageNumber}`,
@@ -1523,6 +1578,10 @@ async function importCanvaPdf(file) {
       });
     }
 
+    await replaceCanvaPageImages(importedImages);
+    const importedPageNumbers = new Set(importedPages.map((page) => Number(page.page)));
+    const removedCount = [...previousHashes.keys()].filter((pageNumber) => !importedPageNumbers.has(pageNumber)).length;
+
     state.canvaPages = importedPages;
     state.canva = {
       ...(state.canva || {}),
@@ -1535,7 +1594,8 @@ async function importCanvaPdf(file) {
     persist();
     await loadCanvaPageImages();
     renderSongbook();
-    setPdfImportStatus(`Uvoženo: ${importedPages.length} strani iz ${file.name}`);
+    const removedMessage = removedCount ? `, ${removedCount} odstranjenih` : "";
+    setPdfImportStatus(`Uvoz končan: ${addedCount} novih, ${changedCount} spremenjenih, ${unchangedCount} nespremenjenih strani${removedMessage}.`);
   } catch (error) {
     console.error(error);
     setPdfImportStatus("PDF-ja nisem mogel uvoziti. Preveri internetno povezavo in da je datoteka PDF iz Canve.");
