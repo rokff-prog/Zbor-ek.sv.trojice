@@ -12,6 +12,7 @@ const MASS_PARTS = [
 ];
 
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
+const CHORD_BACKUP_KEY = "zborcek-sv-trojice-chords-v1";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
 const CANVA_PAGE_COUNT = 33;
 const CANVA_DB = "zborcek-canva-pages";
@@ -686,6 +687,7 @@ let chordAddMode = false;
 let visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : new Date().toISOString().slice(0, 7);
 let isAdminView = Boolean(window.zborcekAuth?.state?.isAdmin);
 migrateState();
+backupChords();
 
 const viewTitles = {
   mass: "Načrt svete maše",
@@ -711,6 +713,7 @@ function loadState() {
 }
 
 function persist() {
+  backupChords();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
   } catch (error) {
@@ -720,6 +723,38 @@ function persist() {
     clearTimeout(remoteSaveTimer);
     remoteSaveTimer = setTimeout(() => saveStateToServer().catch(console.error), 700);
   }
+}
+
+function backupChords() {
+  const chords = Object.fromEntries((state.songs || [])
+    .filter((song) => song.chords || song.inlineChords)
+    .map((song) => [song.id, {
+      title: song.title,
+      chords: song.chords || "",
+      inlineChords: song.inlineChords || "",
+    }]));
+  if (!Object.keys(chords).length) return;
+  try {
+    localStorage.setItem(CHORD_BACKUP_KEY, JSON.stringify(chords));
+  } catch (error) {
+    console.warn("Varnostna kopija akordov ni uspela.", error);
+  }
+}
+
+function restoreChordBackup(targetState) {
+  try {
+    const backup = JSON.parse(localStorage.getItem(CHORD_BACKUP_KEY) || "{}");
+    if (!backup || typeof backup !== "object") return targetState;
+    for (const song of targetState.songs || []) {
+      const saved = backup[song.id];
+      if (!saved) continue;
+      if (!song.chords && saved.chords) song.chords = saved.chords;
+      if (!song.inlineChords && saved.inlineChords) song.inlineChords = saved.inlineChords;
+    }
+  } catch (error) {
+    console.warn("Obnova varnostne kopije akordov ni uspela.", error);
+  }
+  return targetState;
 }
 
 async function apiFetch(path, options = {}) {
@@ -743,8 +778,19 @@ async function saveStateToServer() {
 
 function applyRemotePublicState(remote) {
   if (!remote || typeof remote !== "object") return;
+  if (isAdminView && !IS_GITHUB_PUBLIC) return;
   suppressRemoteSave = true;
-  if (Array.isArray(remote.songs)) state.songs = remote.songs;
+  if (Array.isArray(remote.songs)) {
+    const currentSongs = new Map((state.songs || []).map((song) => [song.id, song]));
+    state.songs = remote.songs.map((song) => {
+      const current = currentSongs.get(song.id);
+      return current ? {
+        ...song,
+        chords: song.chords || current.chords || "",
+        inlineChords: song.inlineChords || current.inlineChords || "",
+      } : song;
+    });
+  }
   if (Array.isArray(remote.massHistory)) state.massHistory = remote.massHistory;
   if (Array.isArray(remote.canvaPages)) state.canvaPages = remote.canvaPages;
   if (remote.canva) state.canva = remote.canva;
@@ -776,9 +822,10 @@ async function loadRemoteAdminState() {
     const response = await apiFetch("/api/state");
     if (response.ok) {
       suppressRemoteSave = true;
-      state = await response.json();
+      state = restoreChordBackup(await response.json());
       migrateState();
       suppressRemoteSave = false;
+      backupChords();
       selectedSongId = state.songs[0]?.id || null;
       visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : visibleMassMonth;
       await loadRemoteSongbook();
@@ -2950,7 +2997,8 @@ applyAccessMode(window.zborcekAuth?.state || {});
 document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
 (async function bootstrap() {
   syncCanvaSongbook({ silent: true });
-  await Promise.all([loadRemotePublicState(), loadRemoteSongbook()]);
+  if (isAdminView && !IS_GITHUB_PUBLIC) await Promise.all([loadRemoteAdminState(), loadRemoteSongbook()]);
+  else await Promise.all([loadRemotePublicState(), loadRemoteSongbook()]);
   await loadCanvaPageImages()
     .catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
   renderAll();
