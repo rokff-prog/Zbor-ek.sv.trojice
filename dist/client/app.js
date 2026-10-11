@@ -13,7 +13,6 @@ const MASS_PARTS = [
 
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
-const CANVA_EMBED_URL = "https://www.canva.com/design/DAG0E3TU2Go/view?embed";
 const CANVA_PAGE_COUNT = 33;
 const CANVA_DB = "zborcek-canva-pages";
 const CANVA_STORE = "pages";
@@ -945,24 +944,6 @@ async function loadCanvaPageImages() {
 function setPdfImportStatus(message) {
   const status = $("#pdfImportStatus");
   if (status) status.textContent = message;
-}
-
-function showLiveCanva({ reload = false } = {}) {
-  const panel = $("#canvaLivePanel");
-  const frame = $("#canvaLiveFrame");
-  const button = $("#showCanvaLive");
-  if (!panel || !frame || !button) return;
-
-  const shouldShow = reload || panel.hidden;
-  panel.hidden = !shouldShow;
-  button.setAttribute("aria-expanded", String(shouldShow));
-  button.textContent = shouldShow ? "Skrij Canvo" : "Canva v živo";
-  if (!shouldShow) return;
-
-  frame.src = `${CANVA_EMBED_URL}&refresh=${Date.now()}`;
-  panel.scrollIntoView({ behavior: "smooth", block: "start" });
-  const status = $("#syncStatus");
-  if (status) status.textContent = "Zahtevana je osvežitev Canva pogleda";
 }
 
 function syncCanvaSongbook({ silent = false } = {}) {
@@ -2680,11 +2661,9 @@ function wireEvents() {
     renderAll();
   });
 
-  $("#showCanvaLive").addEventListener("click", () => showLiveCanva());
-  $("#reloadCanvaLive").addEventListener("click", () => showLiveCanva({ reload: true }));
   $("#syncCanva").addEventListener("click", () => {
     setView("songbook");
-    showLiveCanva({ reload: true });
+    syncCanvaSongbook();
   });
 }
 

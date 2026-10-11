@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261010-install-app" />
+    <link rel="stylesheet" href="styles.css?v=20261011-canva-fix" />
   </head>
   <body>
     <aside class="sidebar">
@@ -151,24 +151,13 @@
             Uvozi PDF iz Canve
             <input id="importCanvaPdf" type="file" accept="application/pdf" />
           </label>
-          <button id="showCanvaLive" class="ghost" type="button" aria-expanded="false">Canva v živo</button>
           <button id="saveSongbookToSongs" class="ghost push-right admin-only" type="button">Shrani pesmarico</button>
           <button id="printSongbook" class="primary">Natisni pesmarico</button>
           <a class="canva-open-link admin-only" href="https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit" target="_blank" rel="noreferrer">Odpri pesmarico v Canvi</a>
         </div>
         <div id="pdfImportStatus" class="import-status no-print admin-only"></div>
-        <section id="canvaLivePanel" class="canva-live-panel no-print" hidden>
-          <div class="canva-live-head">
-            <div>
-              <strong>Pesmarica iz Canve</strong>
-              <small>Nove strani se pokažejo takoj po osvežitvi.</small>
-            </div>
-            <button id="reloadCanvaLive" class="ghost" type="button">Osveži Canvo</button>
-          </div>
-          <iframe id="canvaLiveFrame" title="Pesmarica Zborček v Canvi" loading="lazy" allowfullscreen></iframe>
-        </section>
         <div class="songbook-note no-print admin-only">
-          Pogled Canva v živo se osveži neposredno iz Canve. Za tisk in urejanje posameznih strani uporabi izvoz PDF ter gumb Uvozi PDF iz Canve.
+          Za nove ali spremenjene strani izvozi pesmarico iz Canve kot PDF in uporabi gumb Uvozi PDF iz Canve.
         </div>
         <div class="songbook-workspace">
           <div id="songbookPages" class="songbook-grid"></div>
@@ -395,7 +384,7 @@
     <script src="auth-config.js?v=20260915-public"></script>
     <script src="auth.js?v=20260916-password"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="app.js?v=20261010-install-app"></script>
-    <script src="install-app.js?v=20261010-install-app"></script>
+    <script src="app.js?v=20261011-canva-fix"></script>
+    <script src="install-app.js?v=20261011-canva-fix"></script>
   </body>
 </html>

@@ -264,10 +264,6 @@ textarea {
   margin-left: auto;
 }
 
-.songbook-toolbar > #showCanvaLive {
-  order: 3;
-}
-
 .songbook-toolbar > .canva-open-link {
   order: 4;
 }
@@ -431,44 +427,6 @@ textarea {
   margin: 10px 0 0;
   color: var(--blue);
   font-weight: 800;
-}
-
-.canva-live-panel {
-  margin: 14px 0 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: white;
-}
-
-.canva-live-panel[hidden] {
-  display: none;
-}
-
-.canva-live-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.canva-live-head div {
-  display: grid;
-  gap: 2px;
-}
-
-.canva-live-head small {
-  color: var(--muted);
-}
-
-.canva-live-panel iframe {
-  display: block;
-  width: 100%;
-  min-height: 72vh;
-  border: 0;
-  background: #f5f7fa;
 }
 
 .slot-grid {
