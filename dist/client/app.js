@@ -643,9 +643,9 @@ const seedData = {
     { title: "Naj te pozdravim", page: 96, inBook: true, known: true, categories: ["Vstopna", "Marijine"] },
   ]),
   people: [
-    { id: crypto.randomUUID(), name: "Eneja", age: "10 let", parents: "", notes: "" },
-    { id: crypto.randomUUID(), name: "Nuša", age: "10 let", parents: "", notes: "" },
-    { id: crypto.randomUUID(), name: "Anja", age: "9 let", parents: "", notes: "" },
+    { id: crypto.randomUUID(), name: "Eneja", age: "10 let", parents: "", phone: "", notes: "" },
+    { id: crypto.randomUUID(), name: "Nuša", age: "10 let", parents: "", phone: "", notes: "" },
+    { id: crypto.randomUUID(), name: "Anja", age: "9 let", parents: "", phone: "", notes: "" },
   ],
   mass: {
     date: "2026-06-14",
@@ -794,6 +794,10 @@ async function loadRemoteAdminState() {
 }
 
 function migrateState() {
+  state.people = (Array.isArray(state.people) ? state.people : []).map((person) => ({
+    ...person,
+    phone: person.phone || "",
+  }));
   state.massHistory = Array.isArray(state.massHistory) ? state.massHistory : [];
   const refreshedImportedDates = new Set();
   for (const seedEntry of seedData.massHistory || []) {
@@ -2136,11 +2140,12 @@ function transpose(text, steps) {
 function renderPeople() {
   $("#peopleRows").innerHTML = state.people.map((person) => `
     <tr data-person-id="${person.id}">
-      <td><input value="${escapeAttr(person.name)}" data-field="name" /></td>
-      <td><input value="${escapeAttr(person.age)}" data-field="age" /></td>
-      <td><input value="${escapeAttr(person.parents)}" data-field="parents" /></td>
-      <td><input value="${escapeAttr(person.notes)}" data-field="notes" /></td>
-      <td><button class="danger" data-delete-person="${person.id}">Izbriši</button></td>
+      <td data-label="Ime"><input value="${escapeAttr(person.name)}" data-field="name" aria-label="Ime" /></td>
+      <td data-label="Starost"><input value="${escapeAttr(person.age)}" data-field="age" aria-label="Starost" /></td>
+      <td data-label="Starši"><input value="${escapeAttr(person.parents)}" data-field="parents" aria-label="Starši" /></td>
+      <td data-label="Tel. št."><input type="tel" inputmode="tel" autocomplete="tel" value="${escapeAttr(person.phone || "")}" data-field="phone" aria-label="Telefonska številka" /></td>
+      <td data-label="Posebnosti"><input value="${escapeAttr(person.notes)}" data-field="notes" aria-label="Posebnosti" /></td>
+      <td class="person-delete"><button class="danger" data-delete-person="${person.id}">Izbriši</button></td>
     </tr>
   `).join("");
 }
@@ -2615,7 +2620,7 @@ function wireEvents() {
   });
 
   $("#addPerson").addEventListener("click", () => {
-    state.people.push({ id: crypto.randomUUID(), name: "", age: "", parents: "", notes: "" });
+    state.people.push({ id: crypto.randomUUID(), name: "", age: "", parents: "", phone: "", notes: "" });
     persist();
     renderPeople();
   });
@@ -2648,6 +2653,9 @@ function wireEvents() {
     if (!button) return;
     selectedSongbookPageId = selectedSongbookPageId === button.dataset.songbookOpen ? null : button.dataset.songbookOpen;
     renderSongbook();
+    if (selectedSongbookPageId && window.matchMedia("(max-width: 860px)").matches) {
+      requestAnimationFrame(() => $("#songbookEditor")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
   });
   $("#songbookPages").addEventListener("input", (event) => {
     const input = event.target.closest("[data-songbook-copy]");

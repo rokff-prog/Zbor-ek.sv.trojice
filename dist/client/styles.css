@@ -1573,20 +1573,67 @@ th {
 @media (max-width: 860px) {
   body {
     grid-template-columns: 1fr;
+    display: block;
   }
 
   .sidebar {
     min-height: auto;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    gap: 9px;
+    padding: 10px 12px 8px;
+    box-shadow: 0 4px 18px rgba(0, 45, 66, 0.2);
+  }
+
+  .brand {
+    gap: 9px;
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+  }
+
+  .brand h1 {
+    font-size: 15px;
+  }
+
+  .brand p,
+  .source-box {
+    display: none !important;
+  }
+
+  .nav {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 10px 12px;
+    text-align: center;
   }
 
   .topbar {
+    position: static;
+    min-height: auto;
     gap: 12px;
-    padding: 16px;
+    padding: 12px 16px;
     flex-wrap: wrap;
   }
 
   .topbar > div:first-child {
-    flex: 1 1 100%;
+    flex: 1 1 170px;
   }
 
   .topbar h2 {
@@ -1597,16 +1644,108 @@ th {
     padding-inline: 10px;
   }
 
+  .view {
+    padding: 16px 14px 36px;
+  }
+
+  button,
+  .primary,
+  .ghost,
+  .danger,
+  .file-button,
+  .canva-open-link,
+  input,
+  select {
+    min-height: 44px;
+  }
+
+  .toolbar {
+    align-items: stretch;
+  }
+
+  .toolbar > label,
+  .toolbar > input,
+  .toolbar > button,
+  .toolbar > a,
+  .search {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hero-panel {
+    min-height: 160px;
+    margin-bottom: 16px;
+    padding: 20px;
+  }
+
+  .hero-copy h3 {
+    margin-top: 12px;
+    font-size: 34px;
+  }
+
+  .hero-copy p {
+    font-size: 15px;
+  }
+
+  .music-cloud {
+    display: none;
+  }
+
+  .mass-calendar-panel {
+    max-width: none;
+  }
+
+  .mass-calendar {
+    gap: 4px;
+  }
+
+  .calendar-day,
+  .calendar-empty {
+    min-height: 42px;
+    padding: 0;
+  }
+
+  .slot-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
   .split,
   .chord-layout,
   .songbook-workspace,
+  .songbook-workspace.editing,
   .chord-workspace,
   .calendar-layout {
     grid-template-columns: 1fr;
   }
 
+  .songbook-grid,
   .chord-grid {
     grid-template-columns: 1fr;
+  }
+
+  .songbook-card.active {
+    grid-column: span 1;
+  }
+
+  .songbook-card.active .canva-page-frame {
+    max-width: none;
+  }
+
+  .songbook-toolbar > *,
+  .songbook-toolbar > .file-button {
+    order: initial;
+    margin-left: 0;
+  }
+
+  .songbook-card-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .songbook-card-controls label {
+    max-width: none;
   }
 
   .calendar-event {
@@ -1619,12 +1758,130 @@ th {
 
   .songbook-editor {
     position: static;
+    order: -1;
+    scroll-margin-top: 112px;
+  }
+
+  .calendar-embed-panel,
+  .calendar-embed-panel iframe,
+  .calendar-fallback {
+    min-height: 430px;
+  }
+
+  .table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .table-wrap table,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-wrap thead {
+    display: none;
+  }
+
+  .table-wrap tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .table-wrap tr {
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 8px 22px rgba(39, 47, 43, 0.06);
+  }
+
+  .table-wrap td {
+    display: grid;
+    gap: 6px;
+    padding: 6px 0;
+    border: 0;
+  }
+
+  .table-wrap td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .table-wrap .person-delete {
+    padding-top: 10px;
+  }
+
+  .table-wrap .person-delete button {
+    width: 100%;
+  }
+
+  .import-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    padding: 0;
+  }
+
+  .import-dialog-panel,
+  .chord-editor {
+    padding: 16px;
   }
 
   .chord-editor-dialog {
     width: calc(100vw - 16px);
     height: calc(100vh - 16px);
     max-height: calc(100vh - 16px);
+  }
+
+  .chord-editor-heading {
+    top: -16px;
+    margin: -16px -16px 0;
+  }
+
+  .form-actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar .eyebrow {
+    display: none;
+  }
+
+  .topbar h2 {
+    font-size: 18px;
+  }
+
+  .top-actions {
+    gap: 6px;
+  }
+
+  .hero-panel {
+    min-height: 142px;
+    padding: 16px;
+  }
+
+  .paint-label {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .hero-copy h3 {
+    font-size: 29px;
+  }
+
+  .calendar-weekday {
+    font-size: 10px;
+  }
+
+  .calendar-day,
+  .calendar-empty {
+    min-height: 38px;
   }
 }
 
