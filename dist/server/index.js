@@ -26,6 +26,41 @@ async function secretValue(binding) {
   return String(binding || "");
 }
 
+async function importProtectedParticipants(env) {
+  if (!env.PARTICIPANTS_IMPORT_JSON || !env.MEDIA) return;
+  const object = await env.MEDIA.get("app-state.json");
+  if (!object) return;
+  const state = JSON.parse(await object.text());
+  if (state.participantsImportedFromSheet20261011) return;
+  const importedPeople = JSON.parse(await secretValue(env.PARTICIPANTS_IMPORT_JSON));
+  if (!Array.isArray(importedPeople)) return;
+  state.people = Array.isArray(state.people) ? state.people : [];
+
+  for (const importedPerson of importedPeople) {
+    const importedFirstName = String(importedPerson.name || "").trim().split(/\s+/)[0].toLocaleLowerCase("sl");
+    const existing = state.people.find((person) => person.sheetRow === importedPerson.sheetRow)
+      || state.people.find((person) => String(person.name || "").trim().toLocaleLowerCase("sl") === String(importedPerson.name || "").trim().toLocaleLowerCase("sl"))
+      || state.people.find((person) => {
+        const name = String(person.name || "").trim().toLocaleLowerCase("sl");
+        return !name.includes(" ") && name === importedFirstName;
+      });
+    const merged = { ...importedPerson, id: existing?.id || crypto.randomUUID() };
+    if (existing) Object.assign(existing, merged);
+    else state.people.push(merged);
+  }
+
+  state.participantsImportedFromSheet20261011 = true;
+  await env.MEDIA.put("app-state.json", JSON.stringify(state), { httpMetadata: { contentType: "application/json" } });
+}
+
+async function protectedParticipantImportComplete(env) {
+  if (!env.MEDIA) return false;
+  const object = await env.MEDIA.get("app-state.json");
+  if (!object) return false;
+  const state = JSON.parse(await object.text());
+  return Boolean(state.participantsImportedFromSheet20261011);
+}
+
 async function passwordMatches(password, env) {
   if (!env.ADMIN_PASSWORD) return false;
   const encoder = new TextEncoder();
@@ -77,11 +112,18 @@ function corsHeaders(request) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    await importProtectedParticipants(env).catch((error) => console.error("Participant import failed", error));
     const { username, isAdmin } = await sessionFor(request, env);
     const cors = corsHeaders(request);
 
     if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
       return new Response(null, { status: 204, headers: cors });
+    }
+
+    if (url.pathname === "/api/participant-import-status" && request.method === "GET") {
+      return Response.json({ imported: await protectedParticipantImportComplete(env) }, {
+        headers: { "Cache-Control": "no-store" },
+      });
     }
 
     if (url.pathname === "/api/auth-state") {

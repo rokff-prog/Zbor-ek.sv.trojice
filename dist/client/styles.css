@@ -1162,6 +1162,29 @@ table {
   border-collapse: collapse;
 }
 
+.people-table {
+  min-width: 1360px;
+}
+
+.birthdate-age-field {
+  display: grid;
+  grid-template-columns: minmax(145px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.person-age {
+  min-width: 58px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  background: var(--cream);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+  white-space: nowrap;
+}
+
 th,
 td {
   border-bottom: 1px solid var(--line);
@@ -1648,6 +1671,10 @@ th {
     padding: 16px 14px 36px;
   }
 
+  .view.active {
+    touch-action: pan-y;
+  }
+
   button,
   .primary,
   .ghost,
@@ -1780,6 +1807,10 @@ th {
   .table-wrap td {
     display: block;
     width: 100%;
+  }
+
+  .people-table {
+    min-width: 0;
   }
 
   .table-wrap thead {

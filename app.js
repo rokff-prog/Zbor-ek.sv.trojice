@@ -643,9 +643,9 @@ const seedData = {
     { title: "Naj te pozdravim", page: 96, inBook: true, known: true, categories: ["Vstopna", "Marijine"] },
   ]),
   people: [
-    { id: crypto.randomUUID(), name: "Eneja", age: "10 let", parents: "", phone: "", notes: "" },
-    { id: crypto.randomUUID(), name: "Nuša", age: "10 let", parents: "", phone: "", notes: "" },
-    { id: crypto.randomUUID(), name: "Anja", age: "9 let", parents: "", phone: "", notes: "" },
+    { id: crypto.randomUUID(), name: "Eneja", birthDate: "", age: "10 let", parents: "", phone: "", email: "", address: "", notes: "" },
+    { id: crypto.randomUUID(), name: "Nuša", birthDate: "", age: "10 let", parents: "", phone: "", email: "", address: "", notes: "" },
+    { id: crypto.randomUUID(), name: "Anja", birthDate: "", age: "9 let", parents: "", phone: "", email: "", address: "", notes: "" },
   ],
   mass: {
     date: "2026-06-14",
@@ -796,7 +796,10 @@ async function loadRemoteAdminState() {
 function migrateState() {
   state.people = (Array.isArray(state.people) ? state.people : []).map((person) => ({
     ...person,
+    birthDate: person.birthDate || "",
     phone: person.phone || "",
+    email: person.email || "",
+    address: person.address || "",
   }));
   state.massHistory = Array.isArray(state.massHistory) ? state.massHistory : [];
   const refreshedImportedDates = new Set();
@@ -2137,13 +2140,41 @@ function transpose(text, steps) {
   });
 }
 
+function calculateAge(birthDate, today = new Date()) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(birthDate || ""));
+  if (!match) return null;
+  const birthYear = Number(match[1]);
+  const birthMonth = Number(match[2]);
+  const birthDay = Number(match[3]);
+  let age = today.getFullYear() - birthYear;
+  if (today.getMonth() + 1 < birthMonth || (today.getMonth() + 1 === birthMonth && today.getDate() < birthDay)) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+function ageLabel(person) {
+  const age = calculateAge(person.birthDate);
+  if (age === null) return person.age || "Ni podatka";
+  if (age === 1) return "1 leto";
+  if (age === 2) return "2 leti";
+  if (age === 3 || age === 4) return `${age} leta`;
+  return `${age} let`;
+}
+
 function renderPeople() {
+  const today = new Date().toLocaleDateString("sv-SE");
   $("#peopleRows").innerHTML = state.people.map((person) => `
     <tr data-person-id="${person.id}">
       <td data-label="Ime"><input value="${escapeAttr(person.name)}" data-field="name" aria-label="Ime" /></td>
-      <td data-label="Starost"><input value="${escapeAttr(person.age)}" data-field="age" aria-label="Starost" /></td>
+      <td data-label="Rojstni datum / starost">
+        <div class="birthdate-age-field">
+          <input type="date" max="${today}" value="${escapeAttr(person.birthDate || "")}" data-field="birthDate" aria-label="Rojstni datum" />
+          <output class="person-age" aria-label="Izračunana starost">${escapeHtml(ageLabel(person))}</output>
+        </div>
+      </td>
       <td data-label="Starši"><input value="${escapeAttr(person.parents)}" data-field="parents" aria-label="Starši" /></td>
       <td data-label="Tel. št."><input type="tel" inputmode="tel" autocomplete="tel" value="${escapeAttr(person.phone || "")}" data-field="phone" aria-label="Telefonska številka" /></td>
+      <td data-label="E-pošta"><input type="email" inputmode="email" autocomplete="email" value="${escapeAttr(person.email || "")}" data-field="email" aria-label="E-pošta" /></td>
+      <td data-label="Naslov"><input autocomplete="street-address" value="${escapeAttr(person.address || "")}" data-field="address" aria-label="Naslov" /></td>
       <td data-label="Posebnosti"><input value="${escapeAttr(person.notes)}" data-field="notes" aria-label="Posebnosti" /></td>
       <td class="person-delete"><button class="danger" data-delete-person="${person.id}">Izbriši</button></td>
     </tr>
@@ -2345,8 +2376,53 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
+function wireMobileTabSwipe() {
+  const surface = document.querySelector(".app");
+  if (!surface) return;
+  let startX = null;
+  let startY = null;
+  let suppressClickUntil = 0;
+  const ignoresSwipe = (target) => Boolean(target.closest("input, select, textarea, label, a, dialog, .stepper, .inline-chord-line"));
+
+  surface.addEventListener("touchstart", (event) => {
+    if (window.innerWidth > 860 || event.touches.length !== 1 || ignoresSwipe(event.target)) {
+      startX = null;
+      startY = null;
+      return;
+    }
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+  }, { passive: true });
+
+  surface.addEventListener("touchend", (event) => {
+    if (startX === null || startY === null || event.changedTouches.length !== 1) return;
+    const deltaX = event.changedTouches[0].clientX - startX;
+    const deltaY = event.changedTouches[0].clientY - startY;
+    startX = null;
+    startY = null;
+    if (Math.abs(deltaX) < 65 || Math.abs(deltaX) < Math.abs(deltaY) * 1.35) return;
+
+    const tabs = $$(".nav-item").filter((button) => getComputedStyle(button).display !== "none");
+    const currentIndex = tabs.findIndex((button) => button.classList.contains("active"));
+    const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= tabs.length) return;
+    event.preventDefault();
+    suppressClickUntil = Date.now() + 450;
+    tabs[nextIndex].click();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, { passive: false });
+
+  surface.addEventListener("click", (event) => {
+    if (Date.now() < suppressClickUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+}
+
 function wireEvents() {
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+  wireMobileTabSwipe();
 
   $("#loginButton").addEventListener("click", () => {
     if (location.hostname === "rokff-prog.github.io") {
@@ -2620,7 +2696,7 @@ function wireEvents() {
   });
 
   $("#addPerson").addEventListener("click", () => {
-    state.people.push({ id: crypto.randomUUID(), name: "", age: "", parents: "", phone: "", notes: "" });
+    state.people.push({ id: crypto.randomUUID(), name: "", birthDate: "", age: "", parents: "", phone: "", email: "", address: "", notes: "" });
     persist();
     renderPeople();
   });
@@ -2630,6 +2706,7 @@ function wireEvents() {
     const person = state.people.find((item) => item.id === row.dataset.personId);
     if (!person) return;
     person[event.target.dataset.field] = event.target.value;
+    if (event.target.dataset.field === "birthDate") row.querySelector(".person-age").textContent = ageLabel(person);
     persist();
   });
   $("#peopleRows").addEventListener("click", (event) => {
