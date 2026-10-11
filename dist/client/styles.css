@@ -214,6 +214,31 @@ textarea {
   flex-wrap: wrap;
 }
 
+.install-app-button {
+  white-space: nowrap;
+}
+
+.install-help-panel {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.install-help-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.install-help-heading h3,
+.install-help-panel p {
+  margin: 0;
+}
+
+.install-help-panel p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .push-right {
   margin-left: auto;
 }
@@ -1596,6 +1621,24 @@ th {
     min-height: auto;
   }
 
+  .topbar {
+    gap: 12px;
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+
+  .topbar > div:first-child {
+    flex: 1 1 100%;
+  }
+
+  .topbar h2 {
+    font-size: 20px;
+  }
+
+  .install-app-button {
+    padding-inline: 10px;
+  }
+
   .split,
   .chord-layout,
   .songbook-workspace,
@@ -1648,9 +1691,10 @@ th {
   body.printing-chords #chords.view {
     display: block !important;
     padding: 0;
+    page: chords;
   }
 
-  body.printing-chords #chordPages,
+  body.printing-chords #chords > :not(.chord-print),
   body.printing-chords #print.view {
     display: none !important;
   }
@@ -1662,9 +1706,10 @@ th {
   body.printing-songbook #songbook.view {
     display: block !important;
     padding: 0;
+    page: songbook;
   }
 
-  body.printing-songbook #songbookPages {
+  body.printing-songbook #songbook > :not(.songbook-print) {
     display: none !important;
   }
 
@@ -1711,7 +1756,15 @@ th {
 
   body.printing-chords .chord-print-page {
     display: block;
-    page: chords;
+    width: 209mm;
+    height: 296mm;
+    page: auto;
+    page-break-after: always;
+  }
+
+  body.printing-chords .chord-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   body.printing-chords .inline-chord-line {
@@ -1743,13 +1796,20 @@ th {
   }
 
   .songbook-print-sheet {
-    page: songbook;
-    width: 297mm;
-    height: 210mm;
+    page: auto;
+    width: 296mm;
+    height: 209mm;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0;
     break-after: page;
+    page-break-after: always;
+    overflow: hidden;
+  }
+
+  .songbook-print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   .songbook-print-page {
@@ -1759,8 +1819,8 @@ th {
   }
 
   .songbook-print-page .canva-page-frame {
-    height: 210mm;
-    width: 148.5mm;
+    height: 209mm;
+    width: 148mm;
     min-height: 0;
     box-shadow: none;
     border: 0;

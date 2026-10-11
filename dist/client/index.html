@@ -3,8 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fffaf0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Zborček" />
     <title>Zborček Sv. Trojice</title>
-    <link rel="stylesheet" href="styles.css?v=20261010-chord-modal" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
+    <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
+    <link rel="stylesheet" href="styles.css?v=20261010-install-app" />
   </head>
   <body>
     <aside class="sidebar">
@@ -43,6 +51,7 @@
             <input id="importJson" type="file" accept="application/json" />
           </label>
         </div>
+        <button id="installAppButton" class="ghost install-app-button" type="button">Namesti aplikacijo</button>
         <button id="loginButton" class="ghost public-only" type="button">Prijava</button>
         <div class="admin-session admin-only">
           <span id="adminIdentity"></span>
@@ -354,6 +363,19 @@
         </div>
       </dialog>
 
+      <dialog id="installHelpDialog" class="import-dialog no-print">
+        <div class="editor import-dialog-panel install-help-panel">
+          <div class="install-help-heading">
+            <h3>Dodaj aplikacijo na telefon</h3>
+            <button id="closeInstallHelp" class="dialog-close" type="button" aria-label="Zapri" title="Zapri">&times;</button>
+          </div>
+          <p id="installHelpText"></p>
+          <div class="form-actions">
+            <button id="confirmInstallHelp" class="primary" type="button">Razumem</button>
+          </div>
+        </div>
+      </dialog>
+
       <section id="print" class="view">
         <div class="toolbar no-print">
           <label>
@@ -373,6 +395,7 @@
     <script src="auth-config.js?v=20260915-public"></script>
     <script src="auth.js?v=20260916-password"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="app.js?v=20261010-chord-modal"></script>
+    <script src="app.js?v=20261010-install-app"></script>
+    <script src="install-app.js?v=20261010-install-app"></script>
   </body>
 </html>
