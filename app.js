@@ -14,7 +14,6 @@ const MASS_PARTS = [
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
 const CHORD_BACKUP_KEY = "zborcek-sv-trojice-chords-v1";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
-const CANVA_PAGE_COUNT = 33;
 const CANVA_DB = "zborcek-canva-pages";
 const CANVA_STORE = "pages";
 const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
@@ -25,38 +24,40 @@ const HOSTED_APP_ORIGIN = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site
 const IS_GITHUB_PUBLIC = location.hostname.endsWith("github.io");
 const API_BASE = IS_GITHUB_PUBLIC ? HOSTED_APP_ORIGIN : "";
 
-// PDF page numbers are not song numbers. Keep this explicit so a new Canva
-// export reconnects each page to the same spreadsheet row every time.
+// Metadata for the reviewed PDF. Categories are owned by the application.
+const SONGBOOK_METADATA_VERSION = "2026-10-16";
+const SONGBOOK_CATEGORIES = [...MASS_PARTS, "Marijine", "Božične", "Postne", "Velikonočne"];
 const SONGBOOK_PAGE_CATALOG = {
-  1: { title: "Pesmarica", cover: true },
-  2: { title: "Aleluja, naše veselje", songNumber: 2 },
-  3: { title: "Darujem ti ljubezen", songNumber: 7 },
-  4: { title: "Hozana na višavah (Svet)", songNumber: 60 },
-  5: { title: "On nosi cel svet", songNumber: 30 },
-  6: { title: "On nosi cel svet", songNumber: 30 },
-  7: { title: "Pesem vesela", songNumber: 31 },
-  8: { title: "Ves dan vso noč", songNumber: 49 },
-  9: { title: "Povej naprej", songNumber: 65 },
-  10: { title: "Če imate usta", songNumber: 64 },
-  11: { title: "Sem jaz", songNumber: 42 },
-  12: { title: "Gospod usmili se", songNumber: 62 },
-  13: { title: "Jagnje Božje", songNumber: 61 },
-  14: { title: "Vsa ljudstva", songNumber: 75 },
-  15: { title: "Poslušajte vsi ljudje", songNumber: 76 },
-  16: { title: "Glej zvezdice Božje", songNumber: 68 },
-  17: { title: "Tam stoji pa hlevček", songNumber: 69 },
-  18: { title: "Sveta noč", songNumber: 70 },
-  19: { title: "Kaj se vam zdi pastirci vi", songNumber: 72 },
-  20: { title: "Slavi ga", songNumber: 43 },
-  21: { title: "Ko čutiš to", songNumber: 16 },
-  22: { title: "Ti naša mati ljubljena", songNumber: 83 },
-  23: { title: "Naj te pozdravim", songNumber: 96 },
-  24: { title: "Kako si lepa (O Marija, O Marija)", songNumber: 77 },
-  25: { title: "Kličem \"svet si\" (Poklonim se)", songNumber: 15 },
-  26: { title: "Mamica je kakor zarja", unlisted: true },
-  27: { title: "Mi se imamo radi", unlisted: true },
-  28: { title: "Aleluja (Jezus Kristus je naš Rešenik)", songNumber: 93 },
-  29: { title: "Jezus, hvala za sonce", songNumber: 95 },
+  1: {"title":"Pesmarica","cover":true,"categories":[]},
+  2: {"title":"Aleluja, naše veselje","categories":["Aleluja","Velikonočne"]},
+  3: {"title":"Darujem ti ljubezen","categories":["Darovanje"]},
+  4: {"title":"Hozana na višavah (Svet)","aliases":["Hozana (Svet si ti naš Gospod)","Hozana na višavah"],"categories":["Svet"]},
+  5: {"title":"On nosi cel svet","aliases":["On nosi ves svet"],"categories":["Vstopna","Obhajilo","Zaključek"]},
+  6: {"title":"On nosi cel svet","aliases":["On nosi ves svet"],"categories":["Vstopna","Obhajilo","Zaključek"]},
+  7: {"title":"Pesem vesela","aliases":["Pesem vesela naj gospoda slavi"],"categories":["Vstopna","Velikonočne"]},
+  8: {"title":"Ves dan vso noč","categories":["Vstopna","Zaključek"]},
+  9: {"title":"Povej naprej","aliases":["Povej naprej!"],"categories":["Zaključek"]},
+  10: {"title":"Če imate usta","categories":["Vstopna","Obhajilo"]},
+  11: {"title":"Sem jaz","aliases":["Sem jaz (družinica)"],"categories":["Vstopna","Zaključek"]},
+  12: {"title":"Gospod usmili se","categories":["Gospod usmili se"]},
+  13: {"title":"Jagnje Božje","aliases":["Jagnje Božje (Jemec)"],"categories":["Jagnje Božje"]},
+  14: {"title":"Vsa ljudstva","aliases":["Vsa ljudstva ploskajte"],"categories":["Psalm"]},
+  15: {"title":"Poslušajte vsi ljudje","categories":["Božične"]},
+  16: {"title":"Glej zvezdice Božje","categories":["Božične"]},
+  17: {"title":"Tam stoji pa hlevček","categories":["Obhajilo","Božične"]},
+  18: {"title":"Sveta noč","categories":["Zaključek","Božične"]},
+  19: {"title":"Kaj se vam zdi pastirci vi","aliases":["Kaj se vam zdi, pastirci vi"],"categories":["Slava","Božične"]},
+  20: {"title":"Slavi ga","aliases":["Slavi ga, slavi ga"],"categories":["Slava"]},
+  21: {"title":"Ko čutiš to","categories":["Vstopna","Psalm","Obhajilo","Zaključek"]},
+  22: {"title":"Ti naša mati ljubljena","categories":["Vstopna","Marijine"]},
+  23: {"title":"Naj te pozdravim","categories":["Vstopna","Marijine"]},
+  24: {"title":"Kako si lepa (O Marija, O Marija)","aliases":["O Marija (Kako si lepa)"],"categories":["Zaključek","Marijine"]},
+  25: {"title":"Kličem \"svet si\" (Poklonim se)","aliases":["Kličem \"svet si\""],"categories":["Svet"]},
+  26: {"title":"Mamica je kakor zarja","unlisted":true,"categories":[]},
+  27: {"title":"Mi se mamo radi","unlisted":true,"aliases":["Mi se imamo radi"],"categories":[]},
+  28: {"title":"Aleluja (Jezus Kristus je naš Rešenik)","categories":["Aleluja","Velikonočne"]},
+  29: {"title":"Jezus, hvala za sonce","categories":["Zaključek"]},
+  30: {"title":"Življenje je dar","categories":["Obhajilo","Zaključek"]},
 };
 
 let canvaPageImages = new Map();
@@ -713,6 +714,7 @@ function loadState() {
 }
 
 function persist() {
+  ensurePermanentSongNumbers(state);
   backupChords();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
@@ -793,6 +795,7 @@ function applyRemotePublicState(remote) {
   }
   if (Array.isArray(remote.massHistory)) state.massHistory = remote.massHistory;
   if (Array.isArray(remote.canvaPages)) state.canvaPages = remote.canvaPages;
+  if (remote.songNumbering) state.songNumbering = remote.songNumbering;
   if (remote.canva) state.canva = remote.canva;
   suppressRemoteSave = false;
 }
@@ -831,6 +834,7 @@ async function loadRemoteAdminState() {
       await loadRemoteSongbook();
       await loadCanvaPageImages();
       renderAll();
+      persist();
     } else if (response.status === 404) {
       await saveStateToServer();
     }
@@ -841,6 +845,7 @@ async function loadRemoteAdminState() {
 }
 
 function migrateState() {
+  if (isAdminView) importSongLibrary();
   state.people = (Array.isArray(state.people) ? state.people : []).map((person) => ({
     ...person,
     birthDate: person.birthDate || "",
@@ -864,7 +869,7 @@ function migrateState() {
     const importedCount = Object.values(entry.selections || {}).filter(Boolean).length;
     const existingCount = Object.values(existing?.selections || {}).filter(Boolean).length;
     if (!existing) state.massHistory.push(structuredClone(entry));
-    else if (existingCount < importedCount || (existing.source === "NASTOPI" && Number(existing.importVersion || 0) < Number(entry.importVersion || 0))) {
+    else if (!existing.editedByUser && (existingCount < importedCount || (existing.source === "NASTOPI" && Number(existing.importVersion || 0) < Number(entry.importVersion || 0)))) {
       Object.assign(existing, structuredClone(entry));
       refreshedImportedDates.add(entry.date);
     }
@@ -880,7 +885,7 @@ function migrateState() {
   const currentMassEntry = state.massHistory.find((item) => item.date === state.mass?.date);
   const currentSelectionCount = Object.values(state.mass?.selections || {}).filter(Boolean).length;
   const historySelectionCount = Object.values(currentMassEntry?.selections || {}).filter(Boolean).length;
-  if (currentMassEntry && (currentSelectionCount < historySelectionCount || refreshedImportedDates.has(state.mass?.date))) {
+  if (currentMassEntry && ((!currentMassEntry.editedByUser && currentSelectionCount < historySelectionCount) || refreshedImportedDates.has(state.mass?.date))) {
     state.mass.note = currentMassEntry.note || state.mass.note || "";
     state.mass.selections = { ...currentMassEntry.selections };
     state.mass.additionalSelections = structuredClone(currentMassEntry.additionalSelections || {});
@@ -903,13 +908,6 @@ function migrateState() {
       if (!song.songNumber) song.songNumber = index + 1;
     });
     state.songNumbersAssigned = true;
-    persist();
-  }
-  if (!state.songNumbersSyncedToSheetRows) {
-    state.songs.forEach((song) => {
-      if (Number(song.page)) song.songNumber = Number(song.page);
-    });
-    state.songNumbersSyncedToSheetRows = true;
     persist();
   }
   if (state.songbookDefaultsZero) {
@@ -1009,17 +1007,19 @@ async function loadCanvaPageImages() {
     canvaPageImages = new Map(bundledSongs
       .filter((song) => song.imageDataUrl)
       .map((song) => [Number(song.page || song.number), song.imageDataUrl]));
-    state.canvaPages = bundledSongs.map((song, index) => ({
-      ...SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)],
-      id: `canva-page-${Number(song.page || index + 1)}`,
-      page: Number(song.page || index + 1),
-      canvaDbPage: Number(song.page || index + 1),
-      title: SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)]?.title || song.title || `Canva stran ${index + 1}`,
-      songId: SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)]?.songNumber
-        ? songByNumber(SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)].songNumber)?.id
-        : state.songs.find((item) => normalizeTitle(item.title) === normalizeTitle(SONGBOOK_PAGE_CATALOG[Number(song.page || index + 1)]?.title))?.id,
+    const savedPages = new Map((state.canvaPages || []).map((page) => [Number(page.canvaDbPage || page.page), page]));
+    const bundledByPage = new Map(bundledSongs.map((song, index) => [Number(song.page || index + 1), song]));
+    const pageNumbers = new Set([...bundledByPage.keys(), ...savedPages.keys()]);
+    state.canvaPages = [...pageNumbers].map((pageNumber) => ({
+      id: `canva-page-${pageNumber}`,
+      page: pageNumber,
+      canvaDbPage: pageNumber,
+      title: bundledByPage.get(pageNumber)?.title || `Canva stran ${pageNumber}`,
       copies: 0,
+      ...savedPages.get(pageNumber),
     })).sort((a, b) => a.page - b.page);
+    const repaired = repairSongbookMetadata();
+    if (refreshSongbookMembership() || repaired) persist();
     return;
   }
 
@@ -1027,6 +1027,7 @@ async function loadCanvaPageImages() {
   canvaPageImages = new Map(records.map((record) => [record.page, URL.createObjectURL(record.blob)]));
 
   if (records.length && (!state.canvaPages || state.canvaPages.length !== records.length)) {
+    const savedPages = new Map((state.canvaPages || []).map((page) => [Number(page.canvaDbPage || page.page), page]));
     state.canvaPages = records
       .map((record) => ({
         id: `canva-page-${record.page}`,
@@ -1034,10 +1035,153 @@ async function loadCanvaPageImages() {
         canvaDbPage: record.page,
         title: `Canva stran ${record.page}`,
         copies: 0,
+        ...savedPages.get(Number(record.page)),
       }))
       .sort((a, b) => a.page - b.page);
     persist();
   }
+  const repaired = repairSongbookMetadata();
+  if (refreshSongbookMembership() || repaired) persist();
+}
+
+function songbookTitleKey(value) {
+  return normalizeTitle(value).replace(/[^a-z0-9]/g, "");
+}
+
+function importSongLibrary() {
+  const catalog = window.ZBORCEK_SONG_CATALOG;
+  if (!catalog?.songs?.length) return false;
+  let changed = false;
+  if (state.songLibraryVersion !== catalog.version) {
+    for (const entry of catalog.songs) {
+      const titleKeys = new Set([entry.title, ...(entry.aliases || [])].map(songbookTitleKey));
+      const matches = state.songs.filter((song) => song.catalogKey === entry.key || titleKeys.has(songbookTitleKey(song.title)));
+      let song = matches.find((item) => item.catalogKey === entry.key)
+        || matches.find((item) => songHasChords(item)) || matches[0];
+      if (!song) {
+        song = {
+          id: `library-${entry.key}`, title: entry.title, lyrics: "", chords: "", inlineChords: "",
+          link: "", known: false, categories: [], inBook: false, page: null,
+        };
+        state.songs.push(song);
+        matches.push(song);
+      }
+      song.catalogKey = entry.key;
+      song.title = entry.title;
+      song.categories = [...entry.categories];
+      song.link = song.link || entry.link || "";
+      song.known = Boolean(song.known || entry.known);
+      for (const match of matches) match.libraryCanonicalId = song.id;
+    }
+    if (!state.songs.some((song) => song.id === "songbook-cover")) {
+      state.songs.unshift({
+        id: "songbook-cover", title: "Naslovnica", isCover: true,
+        categories: [], lyrics: "", chords: "", inlineChords: "", link: "", known: false,
+      });
+    }
+    for (const song of state.songs) {
+      if (["naslovna", "naslovnica", "pesmarica"].includes(songbookTitleKey(song.title)) && !songHasChords(song)) {
+        song.libraryCanonicalId = "songbook-cover";
+        song.isCover = true;
+      }
+    }
+    state.songLibraryVersion = catalog.version;
+    changed = true;
+  }
+  for (const correction of catalog.chordCorrections || []) {
+    for (const song of state.songs) {
+      if (songbookTitleKey(song.title) !== songbookTitleKey(correction.title) && song.link !== correction.link) continue;
+      if (song.chordRevision === correction.version) continue;
+      if (song.chords || song.inlineChords) {
+        song.chordHistory = [...(song.chordHistory || []), {
+          chords: song.chords || "", inlineChords: song.inlineChords || "", lyrics: song.lyrics || "",
+        }];
+      }
+      song.title = correction.title;
+      song.link = correction.link;
+      song.chords = correction.inlineChords;
+      song.inlineChords = correction.inlineChords;
+      song.lyrics = inlineTextToLyrics(correction.inlineChords);
+      song.chordRevision = correction.version;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function songHasChords(song) {
+  return [song.inlineChords, song.chords].some((text) => {
+    if (!text) return false;
+    return [...text.matchAll(/\[([^\]]+)\]/g)].some((match) => isChordToken(match[1].replace(/[()]/g, "")))
+      || text.split("\n").some(looksLikeChordLine);
+  });
+}
+
+function songbookPagesForSong(song) {
+  const canonicalId = song.libraryCanonicalId || song.id;
+  return [...new Set((state.canvaPages || []).filter((page) => {
+    if (song.isCover) return page.cover;
+    const linked = songbookSongForPage(page);
+    return linked && (linked.libraryCanonicalId || linked.id) === canonicalId;
+  }).map((page) => Number(page.page)))].sort((a, b) => a - b);
+}
+
+function refreshSongbookMembership() {
+  let changed = false;
+  for (const song of state.songs) {
+    const pages = songbookPagesForSong(song);
+    if (song.inBook !== (pages.length > 0) || song.page !== (pages[0] || null)) changed = true;
+    song.inBook = pages.length > 0;
+    song.page = pages[0] || null;
+    song.canvaPage = pages[0] || null;
+  }
+  return changed;
+}
+
+function getSongLibraryRows() {
+  ensurePermanentSongNumbers(state);
+  const groups = new Map();
+  for (const song of state.songs) {
+    const key = song.libraryCanonicalId || song.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(song);
+  }
+  return [...groups.entries()].map(([id, songs]) => {
+    const song = songs.find((item) => item.id === id) || songs[0];
+    const pages = [...new Set(songs.flatMap(songbookPagesForSong))].sort((a, b) => a - b);
+    return { song, pages, hasChords: songs.some(songHasChords) };
+  }).sort((a, b) => (a.song.printNumber || Infinity) - (b.song.printNumber || Infinity)
+    || a.song.title.localeCompare(b.song.title, "sl"));
+}
+
+function songbookCatalogForTitle(title) {
+  const key = songbookTitleKey(title);
+  if (!key) return null;
+  return Object.values(SONGBOOK_PAGE_CATALOG).find((entry) =>
+    [entry.title, ...(entry.aliases || [])].some((candidate) => songbookTitleKey(candidate) === key)) || null;
+}
+
+function repairSongbookMetadata() {
+  let changed = false;
+  for (const page of state.canvaPages || []) {
+    if (page.metadataVersion === SONGBOOK_METADATA_VERSION) continue;
+    const entry = SONGBOOK_PAGE_CATALOG[Number(page.canvaDbPage || page.page)];
+    if (!entry) continue;
+    page.title = entry.title;
+    page.cover = Boolean(entry.cover);
+    page.unlisted = Boolean(entry.unlisted);
+    page.categories = [...entry.categories];
+    delete page.songId;
+    delete page.songNumber;
+    const song = songbookSongForPage(page);
+    if (song) {
+      page.songId = song.id;
+      song.categories = [...page.categories];
+    }
+    page.metadataVersion = SONGBOOK_METADATA_VERSION;
+    changed = true;
+  }
+  return changed;
 }
 
 function setPdfImportStatus(message) {
@@ -1046,57 +1190,22 @@ function setPdfImportStatus(message) {
 }
 
 function syncCanvaSongbook({ silent = false } = {}) {
-  const seen = new Set();
-  const uniqueSongs = [];
-
-  for (const song of state.songs) {
-    const key = normalizeTitle(song.title);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    uniqueSongs.push(song);
-  }
-
-  state.songs = uniqueSongs.map((song) => ({
-    ...song,
-    canvaDesignUrl: song.inBook ? CANVA_DESIGN_URL : song.canvaDesignUrl || "",
-    canvaPage: song.canvaPage || song.page || null,
-    canvaImage: song.canvaImage || (song.inBook && song.page ? `assets/canva-songbook/page-${String(song.page).padStart(2, "0")}.png` : ""),
-  }));
-  state.canva = {
-    designUrl: CANVA_DESIGN_URL,
-    pageCount: CANVA_PAGE_COUNT,
-    lastChecked: new Date().toISOString(),
-    note: "Canva v živo prikaže najnovejšo shranjeno različico pesmarice.",
-  };
-  ensureSongbookCopies();
-  persist();
-
-  const status = $("#syncStatus");
-  if (status) {
-    const importedCount = state.songs.filter((song) => song.inBook).length;
-    status.textContent = `Canva v živo je pripravljena, ${importedCount} pesmi je povezanih za tisk`;
-  }
-  if (!silent) renderAll();
+  return syncConnectedCanva({ silent });
 }
 
 function songById(id) {
   return state.songs.find((song) => song.id === id);
 }
 
-function songByNumber(number) {
-  return state.songs.find((song) => Number(song.songNumber) === Number(number));
-}
-
 function songbookSongForPage(page) {
+  if (page.cover) return null;
   if (page.songId) {
     const linkedSong = songById(page.songId);
     if (linkedSong) return linkedSong;
   }
-  const pageNumber = Number(page.canvaPage || page.page || 0);
-  const titleKey = normalizeTitle(page.title);
-  return state.songs.find((song) => normalizeTitle(song.title) === titleKey)
-    || state.songs.find((song) => Number(song.page || 0) === pageNumber)
-    || null;
+  const entry = songbookCatalogForTitle(page.title);
+  const titleKeys = new Set([page.title, ...(entry?.aliases || [])].map(songbookTitleKey));
+  return state.songs.find((song) => titleKeys.has(songbookTitleKey(song.title))) || null;
 }
 
 function nextSongNumber() {
@@ -1104,10 +1213,13 @@ function nextSongNumber() {
 }
 
 function numberForSongbookItem(item, fallback = item?.page || "") {
-  if (item?.unlisted) return "";
-  if (item?.cover) return 1;
-  const song = state.canvaPages?.length ? songbookSongForPage(item) : songById(item.id);
-  return song?.songNumber || item.songNumber || fallback;
+  ensurePermanentSongNumbers(state);
+  return item?.printNumber || (item?.cover || item?.isCover ? 1 : "–");
+}
+
+function songDisplayNumber(song) {
+  ensurePermanentSongNumbers(state);
+  return song?.printNumbers?.join(", ") || String(song?.printNumber || "–");
 }
 
 function ensureSongForSongbookPage(page) {
@@ -1116,7 +1228,7 @@ function ensureSongForSongbookPage(page) {
       id: "songbook-cover",
       songNumber: 1,
       title: page.title || "Pesmarica",
-      categories: [],
+      categories: [...(page.categories || [])],
       link: "",
       page: page.page,
       canvaPage: page.page,
@@ -1130,7 +1242,7 @@ function ensureSongForSongbookPage(page) {
       id: crypto.randomUUID(),
       songNumber: nextSongNumber(),
       title: page.title || `Canva stran ${page.page}`,
-      categories: [],
+      categories: [...(page.categories || [])],
       link: "",
       page: page.page,
       canvaPage: page.page,
@@ -1146,7 +1258,7 @@ function ensureSongForSongbookPage(page) {
   page.songId = song.id;
   song.inBook = true;
   song.canvaPage = page.page;
-  if (!song.page) song.page = page.page;
+  page.categories = page.categories || [...(song.categories || [])];
   if (!page.title || /^Canva stran \d+$/i.test(page.title)) page.title = song.title;
   return song;
 }
@@ -1182,10 +1294,11 @@ async function imageUrlToDataUrl(url) {
   });
 }
 
-async function presentationSongbookPayload() {
+async function presentationSongbookPayload({ requireImages = false } = {}) {
+  ensurePermanentSongNumbers(state);
   const pages = state.canvaPages?.length
-    ? state.canvaPages.slice().sort((a, b) => a.page - b.page)
-    : state.songs.filter((song) => song.inBook).sort((a, b) => (a.songNumber || 9999) - (b.songNumber || 9999));
+    ? state.canvaPages.slice().sort((a, b) => a.printNumber - b.printNumber)
+    : state.songs.filter((song) => song.inBook).sort((a, b) => (a.printNumber || 9999) - (b.printNumber || 9999));
   const songs = [];
   const bundledPayload = window.ZBORCEK_SONGBOOK;
   const bundledIsCurrent = Boolean(bundledPayload?.exportedAt && !state.canva?.needsPresentationExport);
@@ -1195,17 +1308,21 @@ async function presentationSongbookPayload() {
     setPdfImportStatus(`Pripravljam stran ${index + 1} od ${pages.length} ...`);
     const song = state.canvaPages?.length ? ensureSongForSongbookPage(page) : page;
     const imageUrl = state.canvaPages?.length ? canvaPageImages.get(Number(page.canvaDbPage || page.page)) : page.canvaImage;
-    let imageDataUrl = bundledIsCurrent ? bundledByPage.get(Number(page.page || song.page || 0)) || "" : "";
-    if (!imageDataUrl && imageUrl) {
+    let imageDataUrl = "";
+    if (imageUrl) {
       try {
         imageDataUrl = await imageUrlToDataUrl(imageUrl);
       } catch {
         imageDataUrl = "";
       }
     }
+    if (!imageDataUrl && bundledIsCurrent) imageDataUrl = bundledByPage.get(Number(page.canvaDbPage || page.page || song.page || 0)) || "";
+    if (requireImages && !/^data:image\/(?:png|jpe?g);base64,[A-Za-z0-9+/=\s]+$/.test(imageDataUrl)) {
+      throw new Error(`Manjka slika pesmi št. ${page.printNumber || song.printNumber || "?"} (${page.title || song.title}). Najprej osveži pesmarico.`);
+    }
     songs.push({
-      number: Number(song.songNumber || song.page || page.page),
-      title: song.title || page.title || `Pesem ${page.page}`,
+      number: Number(page.printNumber || song.printNumber || 0),
+      title: page.title || song.title || `Pesem ${page.page}`,
       body: song.lyrics || song.title || "",
       mode: "children",
       imageDataUrl,
@@ -1240,7 +1357,7 @@ function downloadTextFile(filename, text, type = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
-async function saveSongbookToSongs() {
+async function saveSongbookToSongs({ download = true } = {}) {
   setPdfImportStatus("Shranjujem pesmarico in pripravljam predvajalnik ...");
   try {
     let added = 0;
@@ -1266,8 +1383,6 @@ async function saveSongbookToSongs() {
     ensureSongbookCopies();
     persist();
     const payload = await presentationSongbookPayload();
-    state.canva = { ...(state.canva || {}), needsPresentationExport: false, lastPresentationExport: payload.exportedAt };
-    persist();
     if (isAdminView && !IS_GITHUB_PUBLIC) {
       const response = await apiFetch("/api/songbook", {
         method: "POST",
@@ -1275,63 +1390,65 @@ async function saveSongbookToSongs() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error(`Spletna posodobitev pesmarice ni uspela (${response.status}).`);
-      await saveStateToServer();
     }
+    state.canva = { ...(state.canva || {}), needsPresentationExport: false, lastPresentationExport: payload.exportedAt };
+    window.ZBORCEK_SONGBOOK = payload;
+    persist();
+    if (isAdminView && !IS_GITHUB_PUBLIC) await saveStateToServer();
     try { localStorage.removeItem("zborcek-usb-predvajalnik"); } catch {}
-    downloadTextFile(
+    if (download) downloadTextFile(
       "zborcek-predstavitev-pesmarica.js",
       `window.ZBORCEK_SONGBOOK = ${JSON.stringify(payload)};`,
       "text/javascript",
     );
-    setPdfImportStatus(`Pesmarica je posodobljena na javni strani: ${added} novih, ${updated} posodobljenih pesmi. Prenesena je tudi datoteka za USB predvajalnik.`);
+    setPdfImportStatus(`Pesmarica je posodobljena na javni strani: ${added} novih, ${updated} posodobljenih pesmi.${download ? " Prenesena je tudi datoteka za USB predvajalnik." : ""}`);
     renderAll();
+    return true;
   } catch (error) {
     setPdfImportStatus(`Shranjevanje ni uspelo: ${error.message}`);
+    return false;
   }
 }
 
 function setView(view) {
   if (!isAdminView && !["songbook", "calendar"].includes(view)) view = "songbook";
+  if (view !== "songbook" && $("#songbookOptions")) $("#songbookOptions").open = false;
+  if (view !== "songbook" && $("#songbookDialog")?.open) $("#songbookDialog").close();
   $$(".view").forEach((node) => node.classList.toggle("active", node.id === view));
   $$(".nav-item").forEach((node) => node.classList.toggle("active", node.dataset.view === view));
   $("#viewTitle").textContent = viewTitles[view];
   if (view === "print") renderPrint();
   if (view === "calendar") renderCalendar();
+  if (view === "mass") renderUpcomingMasses();
 }
 
 function applyAccessMode(authState = {}) {
   isAdminView = Boolean(authState.isAdmin);
   document.body.classList.toggle("admin-mode", isAdminView);
   document.body.classList.toggle("public-mode", !isAdminView);
+  if ($("#songbookDialog")?.open) renderSongbookDialog();
   const identity = $("#adminIdentity");
   if (identity) identity.textContent = authState.email || "Skrbnik";
   const activeView = $(".view.active")?.id;
   if (!isAdminView && !["songbook", "calendar"].includes(activeView)) setView("songbook");
-  if (isAdminView) loadRemoteAdminState();
+  if (isAdminView) loadRemoteAdminState().then(() => loadCanvaConnectionStatus());
 }
 
 function renderMass() {
-  const savedMass = state.massHistory.find((item) => item.date === state.mass.date);
-  const currentMassSongs = Object.values(state.mass.selections || {}).filter(Boolean).length;
-  const savedMassSongs = Object.values(savedMass?.selections || {}).filter(Boolean).length;
-  if (savedMass && currentMassSongs < savedMassSongs) {
-    state.mass.note = savedMass.note || state.mass.note || "";
-    state.mass.selections = { ...savedMass.selections };
-    state.mass.additionalSelections = structuredClone(savedMass.additionalSelections || {});
-    persist();
-  }
+  ensurePermanentSongNumbers(state);
   $("#massDate").value = state.mass.date || "";
   $("#massNote").value = state.mass.note || "";
   renderMassCalendar();
+  renderUpcomingMasses();
   $("#massSlots").innerHTML = MASS_PARTS.map((part) => {
     const selectedIds = [state.mass.selections[part], ...(state.mass.additionalSelections?.[part] || [])].filter(Boolean);
     const selectIds = selectedIds.length ? selectedIds : [""];
     const selects = selectIds.map((selectedId, index) => {
       const options = state.songs
-        .filter((song) => song.categories?.includes(part))
+        .filter((song) => !song.isCover && (song.categories?.includes(part) || song.id === selectedId))
         .slice()
-        .sort((a, b) => (a.songNumber || 9999) - (b.songNumber || 9999) || a.title.localeCompare(b.title, "sl"))
-        .map((song) => `<option value="${song.id}" ${selectedId === song.id ? "selected" : ""}>${escapeHtml(`${song.songNumber || ""}. ${song.title}`)}</option>`)
+        .sort((a, b) => (a.printNumber || Infinity) - (b.printNumber || Infinity) || a.title.localeCompare(b.title, "sl"))
+        .map((song) => `<option value="${song.id}" ${selectedId === song.id ? "selected" : ""}>${escapeHtml(`${massSongNumber(song)} · ${song.title}`)}</option>`)
         .join("");
       return `<select data-mass-part="${escapeHtml(part)}" data-mass-index="${index}"><option value="">Izberi pesem</option>${options}</select>`;
     }).join("");
@@ -1346,11 +1463,20 @@ function renderMass() {
 }
 
 function hasMassSongs(entry) {
-  return Object.values(entry?.selections || {}).some(Boolean);
+  return massProgramRows(entry).length > 0;
+}
+
+function massProgramRows(entry = state.mass) {
+  return MASS_PARTS.flatMap((part) => [entry?.selections?.[part], ...(entry?.additionalSelections?.[part] || [])]
+    .map((id) => ({ part, song: songById(id) }))).filter(({ song }) => song && !song.isCover);
+}
+
+function massSongNumber(song) {
+  return songDisplayNumber(song);
 }
 
 function saveMassToHistory() {
-  if (!state.mass.date || !Object.values(state.mass.selections || {}).some(Boolean)) return;
+  if (!state.mass.date) return;
   const existing = state.massHistory.find((item) => item.date === state.mass.date);
   const entry = {
     date: state.mass.date,
@@ -1359,6 +1485,7 @@ function saveMassToHistory() {
     additionalSelections: structuredClone(state.mass.additionalSelections || {}),
     source: existing?.source || "app",
     importVersion: existing?.importVersion,
+    editedByUser: true,
   };
   if (existing) Object.assign(existing, entry);
   else state.massHistory.push(entry);
@@ -1416,6 +1543,7 @@ function loadMassFromHistory(date) {
 }
 
 function autosaveMassFromForm() {
+  $("#massProgramStatus").textContent = "";
   state.mass.date = $("#massDate").value;
   state.mass.note = $("#massNote").value;
   state.mass.additionalSelections = {};
@@ -1428,61 +1556,74 @@ function autosaveMassFromForm() {
   saveMassToHistory();
   persist();
   renderMassCalendar();
+  renderUpcomingMasses();
   renderPrint();
 }
 
 function renderSongs() {
-  const query = $("#songSearch")?.value?.trim().toLowerCase() || "";
-  const songs = state.songs
-    .filter((song) => song.title.toLowerCase().includes(query))
-    .sort((a, b) => a.title.localeCompare(b.title, "sl"));
-
-  $("#songList").innerHTML = songs.map((song) => `
-    <button class="song-item ${song.id === selectedSongId ? "active" : ""}" data-song-id="${song.id}">
-      <strong>${escapeHtml(song.title)}</strong>
-      <span class="muted">${song.inBook ? `stran ${song.page || "?"}` : "ni v otroški pesmarici"}</span>
-      <span class="chips">
-        ${song.categories.map((cat) => `<span class="chip">${escapeHtml(cat)}</span>`).join("")}
-        ${song.importedFromDocs ? `<span class="chip">akordi</span>` : ""}
-        ${song.inBook ? `<span class="chip">Canva</span>` : ""}
+  selectedSongId = songById(selectedSongId)?.libraryCanonicalId || selectedSongId;
+  if (!songById(selectedSongId)) selectedSongId = getSongLibraryRows()[0]?.song.id || null;
+  const query = songbookTitleKey($("#songSearch")?.value || "");
+  const status = $("#songStatusFilter")?.value || "";
+  const allRows = getSongLibraryRows();
+  const rows = allRows.filter(({ song, pages, hasChords }) => {
+    if (!songbookTitleKey(song.title).includes(query) && songDisplayNumber(song) !== query) return false;
+    if (status === "inBook") return pages.length > 0;
+    if (status === "missingBook") return !pages.length;
+    if (status === "hasChords") return hasChords;
+    if (status === "missingChords") return !hasChords && !song.isCover;
+    return true;
+  });
+  $("#songLibrarySummary").textContent = `${allRows.filter((row) => !row.song.isCover).length} pesmi · ${allRows.filter((row) => row.pages.length && !row.song.isCover).length} v pesmarici · ${allRows.filter((row) => row.hasChords).length} z akordi`;
+  $("#songList").innerHTML = rows.map(({ song, pages, hasChords }) => `
+    <button type="button" class="song-item song-library-row ${song.id === selectedSongId ? "active" : ""}" data-song-id="${song.id}">
+      <span class="song-library-number">${escapeHtml(songDisplayNumber(song))}</span>
+      <span class="song-library-info">
+        <strong>${escapeHtml(song.title)}</strong>
+        <span class="muted">${escapeHtml((song.categories || []).join(" · ") || (song.isCover ? "Naslovna slika" : "Brez razvrstitve"))}</span>
+        <span class="song-library-statuses">
+          <span class="song-status ${pages.length ? "present" : "absent"}">${pages.length ? "✓ V pesmarici" : "Ni v pesmarici"}</span>
+          ${song.isCover ? "" : `<span class="song-status ${hasChords ? "present" : "absent"}">${hasChords ? "✓ Akordi" : "Brez akordov"}</span>`}
+        </span>
       </span>
     </button>
-  `).join("");
+  `).join("") || `<p class="empty-state">Ni pesmi za izbrani filter.</p>`;
 
   fillSongForm();
   renderChords();
 }
 
 function getSongbookSongs() {
+  ensurePermanentSongNumbers(state);
   const query = normalizeTitle($("#songbookSearch")?.value || "");
   const massPart = $("#songbookMassPart")?.value || "";
   if (state.canvaPages?.length) {
     return state.canvaPages
       .filter((page) => {
         const song = songbookSongForPage(page);
-        const title = normalizeTitle(song?.title || page.title);
-        return title.includes(query) || String(page.page).includes(query);
+        const title = normalizeTitle(page.title || song?.title);
+        return title.includes(query) || String(page.printNumber || "").includes(query);
       })
       .filter((page) => {
         if (!massPart) return true;
         const song = songbookSongForPage(page);
-        return song?.categories?.includes(massPart);
+        return (page.categories || song?.categories || []).includes(massPart);
       })
-      .sort((a, b) => a.page - b.page);
+      .sort((a, b) => a.printNumber - b.printNumber);
   }
   return state.songs
     .filter((song) => song.inBook)
-    .filter((song) => normalizeTitle(song.title).includes(query))
+    .filter((song) => normalizeTitle(song.title).includes(query) || String(song.printNumber || "").includes(query))
     .filter((song) => !massPart || song.categories.includes(massPart))
-    .sort((a, b) => (a.page || 9999) - (b.page || 9999) || a.title.localeCompare(b.title, "sl"));
+    .sort((a, b) => (a.printNumber || Infinity) - (b.printNumber || Infinity) || a.title.localeCompare(b.title, "sl"));
 }
 
 function renderSongbookMassPartFilter() {
   const select = $("#songbookMassPart");
   if (!select) return;
   const current = select.value;
-  select.innerHTML = `<option value="">Vsi deli</option>${MASS_PARTS.map((part) => `<option value="${escapeAttr(part)}">${escapeHtml(part)}</option>`).join("")}`;
-  select.value = MASS_PARTS.includes(current) ? current : "";
+  select.innerHTML = `<option value="">Vsi deli</option>${SONGBOOK_CATEGORIES.map((part) => `<option value="${escapeAttr(part)}">${escapeHtml(part)}</option>`).join("")}`;
+  select.value = SONGBOOK_CATEGORIES.includes(current) ? current : "";
 }
 
 function renderSongbook() {
@@ -1492,10 +1633,9 @@ function renderSongbook() {
   if (!songs.some((song) => song.id === selectedSongbookPageId)) {
     selectedSongbookPageId = null;
   }
-  $(".songbook-workspace")?.classList.toggle("editing", Boolean(selectedSongbookPageId));
   $("#songbookPages").innerHTML = songs.map((song, index) => `
-    <article class="songbook-card ${song.id === selectedSongbookPageId ? "active" : ""}">
-      <button class="songbook-image-button" type="button" data-songbook-open="${song.id}">
+    <article class="songbook-card">
+      <button class="songbook-image-button" type="button" data-songbook-open="${song.id}" aria-haspopup="dialog" aria-label="${escapeAttr(`Odpri: ${song.title}`)}">
         <span class="song-number">${escapeHtml(numberForSongbookItem(song, index + 1))}</span>
         ${renderCanvaPage(song)}
       </button>
@@ -1512,7 +1652,51 @@ function renderSongbook() {
     </article>
   `).join("");
   renderSongbookEditor();
+  if ($("#songbookDialog")?.open) {
+    if (selectedSongbookPageId) renderSongbookDialog();
+    else $("#songbookDialog").close();
+  }
   renderSongbookPrint();
+}
+
+function currentSongbookItem() {
+  return currentSongbookPage() || state.songs.find((song) => song.id === selectedSongbookPageId && song.inBook) || null;
+}
+
+function renderSongbookDialog() {
+  const item = currentSongbookItem();
+  if (!item) return;
+  $("#songbookDialogTitle").textContent = `${numberForSongbookItem(item)} · ${item.title}`;
+  $("#songbookDialogPreview").innerHTML = renderCanvaPage(item);
+  $("#songbookDialog").classList.toggle("readonly", !isAdminView);
+}
+
+function openSongbookDialog(id) {
+  const dialog = $("#songbookDialog");
+  selectedSongbookPageId = id;
+  if (!currentSongbookItem()) { selectedSongbookPageId = null; return; }
+  renderSongbookEditor();
+  renderSongbookDialog();
+  if (!dialog.open) dialog.showModal();
+  document.body.classList.add("songbook-dialog-open");
+  $("#songbookDialogPreview").scrollTop = 0;
+  $(".songbook-dialog-body").scrollTop = 0;
+}
+
+function wireSongbookDialog() {
+  const dialog = $("#songbookDialog");
+  $("#closeSongbookDialog").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => {
+    const id = selectedSongbookPageId;
+    selectedSongbookPageId = null;
+    document.body.classList.remove("songbook-dialog-open");
+    $("#songbookDialogPreview").innerHTML = "";
+    renderSongbookEditor();
+    if ($("#songbook").classList.contains("active")) {
+      $$("[data-songbook-open]").find((button) => button.dataset.songbookOpen === id)?.focus({ preventScroll: true });
+    }
+  });
 }
 
 function currentSongbookPage() {
@@ -1523,26 +1707,28 @@ function currentSongbookPage() {
 function renderSongbookEditor() {
   const form = $("#songbookEditor");
   if (!form) return;
-  const page = currentSongbookPage();
+  const page = currentSongbookItem();
 
   if (!page) {
     form.classList.add("empty", "hidden");
     $("#songbookTitle").value = "";
     $("#songbookPageNumber").value = "";
+    $("#songbookPermanentNumber").value = "";
     $("#songbookLink").value = "";
     $("#songbookMassParts").innerHTML = "";
     return;
   }
 
   selectedSongbookPageId = page.id;
-  const song = ensureSongForSongbookPage(page);
+  const song = state.canvaPages?.length ? ensureSongForSongbookPage(page) : page;
   form.classList.remove("empty", "hidden");
   $("#songbookTitle").value = page.title || song.title;
   $("#songbookPageNumber").value = page.page || song.page || "";
+  $("#songbookPermanentNumber").value = numberForSongbookItem(page);
   $("#songbookLink").value = song.link || "";
-  $("#songbookMassParts").innerHTML = MASS_PARTS.map((part) => `
+  $("#songbookMassParts").innerHTML = SONGBOOK_CATEGORIES.map((part) => `
     <label class="checkbox">
-      <input type="checkbox" value="${escapeAttr(part)}" ${song.categories.includes(part) ? "checked" : ""} />
+      <input type="checkbox" value="${escapeAttr(part)}" ${(page.categories || song.categories || []).includes(part) ? "checked" : ""} />
       ${escapeHtml(part)}
     </label>
   `).join("");
@@ -1564,7 +1750,7 @@ function renderCanvaPage(song) {
   const pageNumber = Number(song.canvaDbPage || song.canvaPage || song.page || 0);
   const image = canvaPageImages.get(pageNumber) || song.canvaImage || "";
   const linkedSong = state.canvaPages?.length ? songbookSongForPage(song) : null;
-  const title = linkedSong?.title || song.title;
+  const title = song.title || linkedSong?.title;
   const fallback = `
     <div class="canva-missing">
       <span>Canva stran ${page}</span>
@@ -1583,6 +1769,14 @@ function renderCanvaPage(song) {
   `;
 }
 
+function matchPreviousCanvaPage(title, hash, pages, hashes, reused) {
+  const catalog = songbookCatalogForTitle(title);
+  const sameTitle = (page) => !reused.has(page) && (songbookTitleKey(page.title) === songbookTitleKey(title)
+    || (catalog && songbookCatalogForTitle(page.title)?.key === catalog.key));
+  return pages.find((page) => sameTitle(page) && hashes.get(Number(page.canvaDbPage || page.page)) === hash)
+    || pages.find(sameTitle);
+}
+
 async function importCanvaPdf(file) {
   if (!file) return;
   setPdfImportStatus("Uvažam PDF iz Canve ...");
@@ -1595,6 +1789,8 @@ async function importCanvaPdf(file) {
 
     const previousRecords = await loadCanvaPageRecords();
     const previousHashes = await getCurrentCanvaPageHashes(previousRecords);
+    const previousPages = [...(state.canvaPages || [])];
+    const reusedPages = new Set();
     const importedPages = [];
     const importedImages = [];
     let addedCount = 0;
@@ -1604,8 +1800,8 @@ async function importCanvaPdf(file) {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       setPdfImportStatus(`Uvažam stran ${pageNumber} od ${pdf.numPages} ...`);
       const page = await pdf.getPage(pageNumber);
-      const catalogEntry = SONGBOOK_PAGE_CATALOG[pageNumber];
       const extractedTitle = await extractPdfPageTitle(page, pageNumber);
+      const catalogEntry = songbookCatalogForTitle(extractedTitle);
       const title = catalogEntry?.title || extractedTitle;
       const viewport = page.getViewport({ scale: 2.3 });
       const canvas = document.createElement("canvas");
@@ -1615,6 +1811,8 @@ async function importCanvaPdf(file) {
       await page.render({ canvasContext: context, viewport }).promise;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
       const hash = await hashCanvaImage(blob);
+      const previousPage = matchPreviousCanvaPage(title, hash, previousPages, previousHashes, reusedPages);
+      if (previousPage) reusedPages.add(previousPage);
       if (!previousHashes.has(pageNumber)) addedCount += 1;
       else if (previousHashes.get(pageNumber) === hash) unchangedCount += 1;
       else changedCount += 1;
@@ -1625,10 +1823,12 @@ async function importCanvaPdf(file) {
         page: pageNumber,
         canvaDbPage: pageNumber,
         title,
-        songId: catalogEntry?.songNumber
-          ? songByNumber(catalogEntry.songNumber)?.id
-          : state.songs.find((song) => normalizeTitle(song.title) === normalizeTitle(title))?.id,
-        copies: 0,
+        categories: [...(previousPage?.categories || catalogEntry?.categories || [])],
+        songId: previousPage?.songId,
+        numberKey: previousPage?.numberKey,
+        printNumber: previousPage?.printNumber,
+        metadataVersion: SONGBOOK_METADATA_VERSION,
+        copies: Number(previousPage?.copies || 0),
       });
     }
 
@@ -1650,9 +1850,11 @@ async function importCanvaPdf(file) {
     renderSongbook();
     const removedMessage = removedCount ? `, ${removedCount} odstranjenih` : "";
     setPdfImportStatus(`Uvoz končan: ${addedCount} novih, ${changedCount} spremenjenih, ${unchangedCount} nespremenjenih strani${removedMessage}.`);
+    return true;
   } catch (error) {
     console.error(error);
     setPdfImportStatus("PDF-ja nisem mogel uvoziti. Preveri internetno povezavo in da je datoteka PDF iz Canve.");
+    return false;
   }
 }
 
@@ -1675,6 +1877,16 @@ async function extractPdfPageTitle(page, pageNumber) {
       if (line) lines.push(line);
     }
 
+    const knownTitle = lines.map(songbookCatalogForTitle).find(Boolean);
+    if (knownTitle) return knownTitle.title;
+    const textKey = songbookTitleKey(lines.join(" "));
+    const knownContent = Object.values(SONGBOOK_PAGE_CATALOG).find((entry) =>
+      [entry.title, ...(entry.aliases || [])].some((title) => {
+        const key = songbookTitleKey(title);
+        return key.length >= 8 && textKey.includes(key);
+      }));
+    if (knownContent) return knownContent.title;
+
     const ignored = /^(PESMARICA|OTROŠKI PEVSKI ZBOR|SV\. TROJICE|V HALOZAH|[0-9]+)$/i;
     const title = lines.find((line) => line.length >= 3 && line.length <= 70 && !ignored.test(line));
     return title || `Canva stran ${pageNumber}`;
@@ -1684,11 +1896,12 @@ async function extractPdfPageTitle(page, pageNumber) {
 }
 
 function renderSongbookPrint() {
+  ensurePermanentSongNumbers(state);
   ensureSongbookCopies();
   const printablePages = [];
   const sourcePages = state.canvaPages?.length
-    ? state.canvaPages.slice().sort((a, b) => a.page - b.page)
-    : state.songs.filter((item) => item.inBook).sort((a, b) => (a.page || 9999) - (b.page || 9999));
+    ? state.canvaPages.slice().sort((a, b) => a.printNumber - b.printNumber)
+    : state.songs.filter((item) => item.inBook).sort((a, b) => (a.printNumber || 9999) - (b.printNumber || 9999));
 
   for (const song of sourcePages) {
     const count = getSongbookCopies(song);
@@ -1712,7 +1925,7 @@ function renderSongbookPrint() {
 
 function fillSongForm() {
   const song = songById(selectedSongId);
-  $("#deleteSong").disabled = !song;
+  $("#deleteSong").disabled = !song || Boolean(song.isCover);
   if (!song) {
     $("#songForm").reset();
     return;
@@ -1720,18 +1933,22 @@ function fillSongForm() {
   $("#songTitle").value = song.title;
   $("#songCategories").value = song.categories.join(", ");
   $("#songLink").value = song.link || "";
-  $("#songPage").value = song.page || "";
+  const pages = songbookPagesForSong(song);
+  $("#songPage").value = songDisplayNumber(song);
   $("#songKnown").checked = Boolean(song.known);
-  $("#songInBook").checked = Boolean(song.inBook);
+  $("#songInBook").checked = pages.length > 0;
   $("#songLyrics").value = song.lyrics || "";
+  for (const selector of ["#songTitle", "#songCategories", "#songLink", "#songKnown", "#songLyrics", "#openSongChords"]) {
+    $(selector).disabled = Boolean(song.isCover);
+  }
 }
 
 function getChordSongs() {
-  const query = normalizeTitle($("#chordSearch")?.value || "");
-  return state.songs
-    .filter((song) => song.inlineChords || song.chords || song.lyrics)
-    .filter((song) => normalizeTitle(song.title).includes(query))
-    .sort((a, b) => a.title.localeCompare(b.title, "sl"));
+  const query = songbookTitleKey($("#chordSearch")?.value || "");
+  return getSongLibraryRows().map(({ song }) => song)
+    .filter((song) => !song.isCover && (song.id === selectedChordSongId || song.inlineChords || song.chords || song.lyrics))
+    .filter((song) => songbookTitleKey(song.title).includes(query) || String(song.printNumber || "").includes(query))
+    .sort((a, b) => (a.printNumber || Infinity) - (b.printNumber || Infinity) || a.title.localeCompare(b.title, "sl"));
 }
 
 function renderChords() {
@@ -1742,18 +1959,17 @@ function renderChords() {
   const pages = $("#chordPages");
   if (pages) {
     pages.innerHTML = songs.map((song, index) => {
-      const isActive = song.id === selectedChordSongId;
       const chordText = song.inlineChords || song.chords || song.lyrics || "";
       return `
-      <article class="chord-card ${song.id === selectedChordSongId ? "active" : ""}">
+      <article class="chord-card">
         <button class="chord-page-button" type="button" data-chord-open="${song.id}">
-          <span class="song-number">${escapeHtml(song.songNumber || index + 1)}</span>
+          <span class="song-number">${escapeHtml(songDisplayNumber(song))}</span>
           <div class="chord-sheet ${chordDensityClass(chordText)}">
             <div class="chord-sheet-head">
-              <span>${escapeHtml(song.categories[0] || "Akordi")}</span>
+              <span>${escapeHtml(song.categories?.[0] || "Akordi")}</span>
               <strong>${escapeHtml(song.title)}</strong>
             </div>
-            <div class="chord-sheet-body">${renderChordLines(chordText, isActive)}</div>
+            <div class="chord-sheet-body">${renderChordLines(chordText)}</div>
           </div>
         </button>
       </article>
@@ -1770,12 +1986,45 @@ function renderChordPrint(songsToPrint = getChordSongs()) {
   if (!print) return;
   const songs = songsToPrint;
   print.innerHTML = songs.map((song, index) => `
-    <section class="chord-print-page ${chordDensityClass(song.inlineChords || song.chords || song.lyrics || "")}">
-      <div class="print-song-number">${escapeHtml(song.songNumber || index + 1)}</div>
-      <h1>${escapeHtml(song.title)}</h1>
-      <div class="chord-print-body">${renderInlineChordLines(song.inlineChords || song.chords || song.lyrics || "", 999)}</div>
+    <section class="chord-print-page">
+      <div class="print-song-number">${escapeHtml(songDisplayNumber(song))}</div>
+      <div class="chord-print-viewport"><div class="chord-print-content">
+        <h1>${escapeHtml(song.title)}</h1>
+        <div class="chord-print-body">${renderInlineChordLines(song.inlineChords || song.chords || song.lyrics || "", Infinity)}</div>
+      </div></div>
     </section>
   `).join("");
+}
+
+function fitChordPrint() {
+  document.body.classList.add("measuring-chords");
+  try {
+    const pages = $$("#chordPrint .chord-print-page");
+    if (!pages.length) return false;
+    for (const page of pages) {
+      const viewport = page.querySelector(".chord-print-viewport");
+      const content = page.querySelector(".chord-print-content");
+      content.style.setProperty("--chord-print-scale", "1");
+      if (!viewport.clientWidth || !viewport.clientHeight) return false;
+      const scale = Math.min(1, (viewport.clientWidth - 2) / Math.max(1, content.scrollWidth),
+        (viewport.clientHeight - 2) / Math.max(1, content.scrollHeight));
+      content.style.setProperty("--chord-print-scale", String(scale));
+    }
+    return true;
+  } finally {
+    document.body.classList.remove("measuring-chords");
+  }
+}
+
+function printChordSongs(songs) {
+  renderChordPrint(songs);
+  if (!fitChordPrint()) {
+    setChordImportStatus("Priprava akordov za tisk ni uspela. Poskusi znova.");
+    return false;
+  }
+  $("#chordPrintDialog").close();
+  printInMode("printing-chords", "portrait");
+  return true;
 }
 
 function chordDensityClass(text) {
@@ -1793,7 +2042,7 @@ function renderChordPrintPicker() {
   picker.innerHTML = songs.map((song, index) => `
     <label class="print-picker-item">
       <input type="checkbox" value="${escapeAttr(song.id)}" />
-      <span class="print-picker-number">${escapeHtml(song.songNumber || index + 1)}</span>
+      <span class="print-picker-number">${escapeHtml(songDisplayNumber(song))}</span>
       <span>${escapeHtml(song.title)}</span>
     </label>
   `).join("");
@@ -1806,12 +2055,14 @@ function renderChordEditor() {
   if (!song) {
     form.classList.add("empty", "hidden");
     $("#chordTitle").value = "";
+    $("#chordPermanentNumber").value = "";
     $("#chordText").value = "";
     $("#inlineChordEditor").innerHTML = "";
     return;
   }
   form.classList.remove("empty", "hidden");
   $("#chordTitle").value = song.title;
+  $("#chordPermanentNumber").value = songDisplayNumber(song);
   $("#chordText").value = normalizeChordInput(song.inlineChords || song.chords || song.lyrics || "");
   renderInlineChordEditor();
 }
@@ -1920,6 +2171,7 @@ function tokenizeInlineChords(text) {
       tokens.push({ type: "char", chord: pendingChord, text: line[index] });
       pendingChord = "";
     }
+    if (pendingChord) tokens.push({ type: "char", chord: pendingChord, text: " " });
     tokens.push({ type: "break" });
   }
   if (tokens.at(-1)?.type === "break") tokens.pop();
@@ -1996,7 +2248,7 @@ function tokenLines(tokens) {
 }
 
 function renderChordLineRow(lineTokens, editable = false) {
-  if (!lineTokens.length) return `<div class="inline-chord-line">&nbsp;</div>`;
+  if (!lineTokens.length) return `<div class="inline-chord-line chord-empty-line">&nbsp;</div>`;
   const lyric = lineTokens.map((token) => token.text).join("");
   const chords = lineTokens
     .filter((token) => token.chord)
@@ -2033,6 +2285,7 @@ function renderInlineChordLines(text, limit = 120) {
 }
 
 function renderInlineChordEditor() {
+  $("#chordEditorDialogTitle").textContent = `${songDisplayNumber(songById(selectedChordSongId))} · ${$("#chordTitle").value || "Akordi"}`;
   const box = $("#inlineChordEditor");
   const textarea = $("#chordText");
   if (!box || !textarea) return;
@@ -2236,11 +2489,7 @@ function renderPrint() {
     .filter((item) => item.song);
 
   if (mode === "plan") {
-    $("#printPage").innerHTML = `
-      <h1>Seznam za sveto mašo</h1>
-      <p><strong>${escapeHtml(date)}</strong>${state.mass.note ? ` · ${escapeHtml(state.mass.note)}` : ""}</p>
-      <ol>${selected.map((item) => `<li><strong>${escapeHtml(item.part)}:</strong> ${escapeHtml(item.song.title)}</li>`).join("")}</ol>
-    `;
+    $("#printPage").innerHTML = massProgramCopyHtml();
     return;
   }
 
@@ -2257,6 +2506,69 @@ function renderPrint() {
       </section>
     `).join("")}
   `;
+}
+
+function massProgramCopyHtml() {
+  const rows = massProgramRows();
+  const date = state.mass.date ? new Date(`${state.mass.date}T12:00:00`).toLocaleDateString("sl-SI") : "Brez datuma";
+  const note = String(state.mass.note || "").trim();
+  return `<div class="mass-program-content">
+    <header class="mass-program-heading">
+      <img src="assets/icons/zborcek-192.png" width="40" height="40" alt="" />
+      <p>Zborček<br />Sv. Trojice v Halozah</p>
+    </header>
+    <h1>Spored pesmi pri maši</h1>
+    <p class="mass-program-date">${escapeHtml(date)}</p>
+    ${note ? `<p class="mass-program-note">${escapeHtml(note)}</p>` : ""}
+    <table class="mass-program-table">
+      <colgroup><col class="mass-program-part" /><col class="mass-program-number" /><col /></colgroup>
+      <thead><tr><th scope="col">Del maše</th><th scope="col">Št.</th><th scope="col">Pesem</th></tr></thead>
+      <tbody>${rows.map(({ part, song }) => `<tr><th scope="row">${escapeHtml(part)}</th><td>${escapeHtml(massSongNumber(song))}</td><td>${escapeHtml(song.title)}</td></tr>`).join("")}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderMassProgramPrint() {
+  const copy = massProgramCopyHtml();
+  $("#massProgramPrint").innerHTML = `<div class="mass-program-sheet">${Array.from({ length: 3 }, () => `<section class="mass-program-copy">${copy}</section>`).join("")}</div>`;
+}
+
+function fitMassProgramPrint() {
+  const sheet = $("#massProgramPrint .mass-program-sheet");
+  document.body.classList.add("measuring-mass-program");
+  try {
+    const copies = $$("#massProgramPrint .mass-program-copy");
+    const overflowing = () => copies.some((copy) => copy.scrollHeight > copy.clientHeight + 1);
+    let size = 10;
+    sheet.style.setProperty("--program-font-size", `${size}pt`);
+    // Fit unusually long titles/notes without cutting text off the three slips.
+    while (overflowing() && size > 7) {
+      size -= 0.25;
+      sheet.style.setProperty("--program-font-size", `${size}pt`);
+    }
+    return !overflowing();
+  } finally {
+    document.body.classList.remove("measuring-mass-program");
+  }
+}
+
+function printMassProgram() {
+  if (!isAdminView) return;
+  autosaveMassFromForm();
+  const status = $("#massProgramStatus");
+  status.textContent = "";
+  if (!state.mass.date || !hasMassSongs(state.mass)) {
+    setView("mass");
+    status.textContent = "Za tisk sporeda izberi datum in vsaj eno pesem.";
+    return;
+  }
+  renderMassProgramPrint();
+  if (!fitMassProgramPrint()) {
+    setView("mass");
+    status.textContent = "Spored je predolg za tri izvode na enem listu. Skrajšaj opombo ali število dodatnih pesmi.";
+    return;
+  }
+  printInMode("printing-mass-program", "landscape");
 }
 
 function calendarEventsFromMassHistory() {
@@ -2276,6 +2588,33 @@ function calendarEventsFromMassHistory() {
         description: songs.join("\n"),
       };
     });
+}
+
+function upcomingMassEvents(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now).map(({ type, value }) => [type, value]));
+  const today = `${parts.year}-${parts.month}-${parts.day}`;
+  const dates = new Set(state.massHistory.filter((entry) => entry.date >= today
+    && (hasMassSongs(entry) || String(entry.note || "").trim())).map((entry) => entry.date));
+  return calendarEventsFromMassHistory().filter((event) => dates.has(event.date));
+}
+
+function massEventListHtml(events, editable = false) {
+  return events.length ? events.map((event) => {
+    const tag = editable ? "button" : "article";
+    const attributes = editable ? `type="button" data-upcoming-mass-date="${escapeAttr(event.date)}"` : "";
+    return `<${tag} class="calendar-event" ${attributes}>
+      <time datetime="${escapeAttr(event.date)}">${escapeHtml(new Date(`${event.date}T12:00:00`).toLocaleDateString("sl-SI"))}</time>
+      <div><strong>${escapeHtml(event.title)}</strong>
+      ${event.description ? `<p>${escapeHtml(event.description).replace(/\n/g, "<br>")}</p>` : ""}</div>
+    </${tag}>`;
+  }).join("") : `<p class="muted">Ni prihodnjih dogodkov.</p>`;
+}
+
+function renderUpcomingMasses() {
+  const list = $("#upcomingMasses");
+  if (list) list.innerHTML = massEventListHtml(upcomingMassEvents(), true);
 }
 
 function googleCalendarUrls() {
@@ -2330,7 +2669,7 @@ function renderCalendar() {
   const setup = $("#calendarSetup");
   const openLink = $("#googleCalendarOpen");
   const icsLink = $("#googleCalendarIcs");
-  const events = calendarEventsFromMassHistory();
+  const events = upcomingMassEvents();
 
   if (frame && fallback && setup && openLink && icsLink) {
     frame.hidden = !urls;
@@ -2344,21 +2683,11 @@ function renderCalendar() {
   }
 
   const count = $("#calendarEventCount");
-  if (count) count.textContent = `${events.length} shranjenih dogodkov`;
+  if (count) count.textContent = `${events.length} prihodnjih dogodkov`;
 
   const list = $("#calendarEvents");
   if (!list) return;
-  list.innerHTML = events.length
-    ? events.map((event) => `
-      <article class="calendar-event">
-        <time datetime="${escapeAttr(event.date)}">${escapeHtml(new Date(event.date).toLocaleDateString("sl-SI"))}</time>
-        <div>
-          <strong>${escapeHtml(event.title)}</strong>
-          ${event.description ? `<p>${escapeHtml(event.description).replace(/\n/g, "<br>")}</p>` : ""}
-        </div>
-      </article>
-    `).join("")
-    : `<p class="muted">Ko shranis nacrt mase z datumom, se bo prikazal tudi tukaj.</p>`;
+  list.innerHTML = massEventListHtml(events);
 }
 
 function escapeIcsText(value) {
@@ -2594,6 +2923,21 @@ function wireMobileTabSwipe() {
 }
 
 function wireEvents() {
+  wireCanvaConnection();
+  const songbookOptions = $("#songbookOptions");
+  songbookOptions.addEventListener("click", (event) => {
+    if (event.target.closest("button, a")) songbookOptions.open = false;
+  });
+  songbookOptions.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      songbookOptions.open = false;
+      songbookOptions.querySelector("summary").focus();
+      event.preventDefault();
+    }
+  });
+  document.addEventListener?.("click", (event) => {
+    if (songbookOptions.open && !songbookOptions.contains(event.target)) songbookOptions.open = false;
+  });
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
   wireMobileTabSwipe();
 
@@ -2626,6 +2970,7 @@ function wireEvents() {
   $("#saveMass").addEventListener("click", () => {
     autosaveMassFromForm();
   });
+  $("#printMassProgram").addEventListener("click", printMassProgram);
   $("#massDate").addEventListener("change", () => {
     const existing = state.massHistory.find((item) => item.date === $("#massDate").value);
     if (existing) loadMassFromHistory(existing.date);
@@ -2651,8 +2996,16 @@ function wireEvents() {
     if (!button) return;
     loadMassFromHistory(button.dataset.massDate);
   });
+  $("#upcomingMasses").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-upcoming-mass-date]");
+    if (button) {
+      loadMassFromHistory(button.dataset.upcomingMassDate);
+      $("#massDate").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
 
   $("#songSearch").addEventListener("input", renderSongs);
+  $("#songStatusFilter").addEventListener("change", renderSongs);
   $("#songList").addEventListener("click", (event) => {
     const item = event.target.closest("[data-song-id]");
     if (!item) return;
@@ -2660,7 +3013,7 @@ function wireEvents() {
     renderSongs();
   });
 
-  $("#newSong").addEventListener("click", () => {
+  const addNewSong = () => {
     const song = {
       id: crypto.randomUUID(),
       title: "Nova pesem",
@@ -2675,27 +3028,38 @@ function wireEvents() {
     };
     state.songs.unshift(song);
     selectedSongId = song.id;
+    $("#songSearch").value = "";
+    $("#songStatusFilter").value = "";
     persist();
     renderAll();
-  });
+    $("#songTitle").focus();
+    $("#songTitle").select();
+  };
+  $("#newSong").addEventListener("click", addNewSong);
+  $("#addSongFromForm").addEventListener("click", addNewSong);
 
   $("#songForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const song = songById(selectedSongId);
-    if (!song) return;
+    if (!song || song.isCover) return;
     song.title = $("#songTitle").value.trim() || "Brez naslova";
     song.categories = $("#songCategories").value.split(",").map((part) => part.trim()).filter(Boolean);
     song.link = $("#songLink").value.trim();
-    song.page = $("#songPage").value ? Number($("#songPage").value) : null;
     song.known = $("#songKnown").checked;
-    song.inBook = $("#songInBook").checked;
     song.lyrics = $("#songLyrics").value;
+    const linkedPages = new Set(songbookPagesForSong(song));
+    for (const page of state.canvaPages || []) {
+      if (linkedPages.has(Number(page.page))) {
+        page.title = song.title;
+        page.categories = [...song.categories];
+      }
+    }
     persist();
     renderAll();
   });
 
   $("#deleteSong").addEventListener("click", () => {
-    if (!selectedSongId) return;
+    if (!selectedSongId || songById(selectedSongId)?.isCover) return;
     state.songs = state.songs.filter((song) => song.id !== selectedSongId);
     for (const part of MASS_PARTS) {
       if (state.mass.selections[part] === selectedSongId) state.mass.selections[part] = "";
@@ -2706,6 +3070,14 @@ function wireEvents() {
   });
 
   $("#chordSearch").addEventListener("input", renderChords);
+  $("#openSongChords").addEventListener("click", () => {
+    selectedChordSongId = selectedSongId;
+    activeChordInputIndex = null;
+    chordAddMode = false;
+    renderChords();
+    $("#chordEditorDialog").showModal();
+    document.body.classList.add("chord-dialog-open");
+  });
   $("#chordPages").addEventListener("click", (event) => {
     const button = event.target.closest("[data-chord-open]");
     if (!button) return;
@@ -2715,16 +3087,20 @@ function wireEvents() {
     renderChords();
     const dialog = $("#chordEditorDialog");
     if (dialog && !dialog.open) dialog.showModal();
+    document.body.classList.add("chord-dialog-open");
   });
   $("#closeChordEditor").addEventListener("click", () => $("#chordEditorDialog").close());
   $("#chordEditorDialog").addEventListener("click", (event) => {
     if (event.target === event.currentTarget) event.currentTarget.close();
   });
   $("#chordEditorDialog").addEventListener("close", () => {
+    const id = selectedChordSongId;
+    document.body.classList.remove("chord-dialog-open");
     selectedChordSongId = null;
     activeChordInputIndex = null;
     chordAddMode = false;
     renderChords();
+    $$("[data-chord-open]").find((button) => button.dataset.chordOpen === id)?.focus({ preventScroll: true });
   });
   $("#chordEditor").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -2733,6 +3109,7 @@ function wireEvents() {
     renderAll();
   });
   $("#chordText").addEventListener("input", renderInlineChordEditor);
+  $("#chordTitle").addEventListener("input", renderInlineChordEditor);
   $("#inlineChordEditor").addEventListener("click", (event) => {
     if (event.target.closest("[data-inline-chord-input]")) return;
     const addButton = event.target.closest("[data-chord-add-mode]");
@@ -2849,9 +3226,7 @@ function wireEvents() {
       setChordImportStatus("Za tisk akordov izberi vsaj eno pesem.");
       return;
     }
-    renderChordPrint(songs);
-    $("#chordPrintDialog").close();
-    printInMode("printing-chords", "portrait");
+    printChordSongs(songs);
   });
   $("#openChordImport").addEventListener("click", () => {
     $("#chordImportText").value = "";
@@ -2889,21 +3264,22 @@ function wireEvents() {
   });
 
   $("#printMode").addEventListener("change", renderPrint);
-  $("#printButton").addEventListener("click", () => window.print());
+  $("#printButton").addEventListener("click", () => {
+    if ($("#printMode").value === "plan") printMassProgram();
+    else if ($("#printMode").value === "guitar") printChordSongs(massProgramRows().map(({ song }) => song));
+    else window.print();
+  });
   $("#calendarEventDate").value = new Date().toLocaleDateString("sv-SE");
   $("#calendarEventForm").addEventListener("submit", openGoogleCalendarEvent);
   $("#downloadLocalIcs").addEventListener("click", downloadLocalCalendarIcs);
 
   $("#songbookSearch").addEventListener("input", renderSongbook);
   $("#songbookMassPart").addEventListener("change", renderSongbook);
+  wireSongbookDialog();
   $("#songbookPages").addEventListener("click", (event) => {
     const button = event.target.closest("[data-songbook-open]");
     if (!button) return;
-    selectedSongbookPageId = selectedSongbookPageId === button.dataset.songbookOpen ? null : button.dataset.songbookOpen;
-    renderSongbook();
-    if (selectedSongbookPageId && window.matchMedia("(max-width: 860px)").matches) {
-      requestAnimationFrame(() => $("#songbookEditor")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    }
+    openSongbookDialog(button.dataset.songbookOpen);
   });
   $("#songbookPages").addEventListener("input", (event) => {
     const input = event.target.closest("[data-songbook-copy]");
@@ -2934,16 +3310,23 @@ function wireEvents() {
   });
   $("#songbookEditor").addEventListener("submit", (event) => {
     event.preventDefault();
-    const page = currentSongbookPage();
+    if (!isAdminView) return;
+    const page = currentSongbookItem();
     if (!page) return;
-    const song = ensureSongForSongbookPage(page);
+    const song = state.canvaPages?.length ? ensureSongForSongbookPage(page) : page;
     page.title = $("#songbookTitle").value.trim() || `Canva stran ${page.page}`;
-    if (page.unlisted) song.title = page.title;
+    if (!page.cover) song.title = page.title;
     page.page = Number($("#songbookPageNumber").value || page.page);
-    song.page = page.page;
     song.canvaPage = page.page;
     song.link = $("#songbookLink").value.trim();
-    song.categories = $$("#songbookMassParts input:checked").map((input) => input.value);
+    page.categories = $$("#songbookMassParts input:checked").map((input) => input.value);
+    page.metadataVersion = SONGBOOK_METADATA_VERSION;
+    if (!page.cover) {
+      song.categories = [...page.categories];
+      for (const otherPage of state.canvaPages || []) {
+        if (otherPage.songId === song.id) otherPage.categories = [...page.categories];
+      }
+    }
     persist();
     renderAll();
   });
@@ -2951,8 +3334,16 @@ function wireEvents() {
     renderSongbookPrint();
     printInMode("printing-songbook", "landscape");
   });
-  $("#importCanvaPdf").addEventListener("change", (event) => importCanvaPdf(event.target.files[0]));
-  $("#saveSongbookToSongs").addEventListener("click", saveSongbookToSongs);
+  $("#songbookManualImport").addEventListener("click", () => $("#importCanvaPdf").click());
+  $("#importCanvaPdf").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    event.target.value = "";
+    await importCanvaPdf(file);
+  });
+  $("#saveSongbookToSongs").addEventListener("click", () => saveSongbookToSongs({ download: false }));
+  $("#updatePresentation").addEventListener("click", () => updatePresentationProgram());
+  $("#downloadSongbookPageForUsb").addEventListener("click", () => downloadCurrentSongbookPageForUsb());
 
   $("#exportJson").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
@@ -2982,6 +3373,7 @@ function wireEvents() {
 }
 
 function renderAll() {
+  ensurePermanentSongNumbers(state);
   renderMass();
   renderSongs();
   renderSongbook();

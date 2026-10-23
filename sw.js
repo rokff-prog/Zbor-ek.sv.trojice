@@ -1,11 +1,15 @@
-const CACHE_NAME = "zborcek-app-v9";
+const CACHE_NAME = "zborcek-app-v20";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20261011-smooth-swipe",
+  "./styles.css?v=20261017-songbook-menu",
   "./auth-config.js?v=20260915-public",
-  "./auth.js?v=20260916-password",
-  "./app.js?v=20261011-smooth-swipe",
+  "./auth.js?v=20261016-remember",
+  "./song-catalog.js?v=20261017-chords",
+  "./song-numbering.js?v=20261017-chords",
+  "./canva-client.js?v=20261017-chords",
+  "./presentation-update.js?v=20261022-usb-page",
+  "./app.js?v=20261022-usb-page",
   "./install-app.js?v=20261011-canva-fix",
   "./zborcek-predstavitev-pesmarica.js?v=20260915-public",
   "./manifest.webmanifest",
@@ -45,7 +49,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then((cached) => cached || fetch(request).then((response) => {
+    caches.open(CACHE_NAME).then((cache) => cache.match(request)).then((cached) => cached || fetch(request).then((response) => {
       if (response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));

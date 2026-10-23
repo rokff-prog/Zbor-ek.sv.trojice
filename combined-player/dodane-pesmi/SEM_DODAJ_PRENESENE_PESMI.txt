@@ -1,0 +1,7 @@
+V to mapo dodaj slike, ki jih preneses iz spletne aplikacije.
+
+Primeri:
+  pesem-017-1.jpg  = prva stran nase pesmi 17
+  pesem-017-2.jpg  = druga stran nase pesmi 17
+
+Program slike prepozna sam. Datoteke katalog.tsv ni treba spreminjati.

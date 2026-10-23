@@ -1,0 +1,36 @@
+SKUPNA PESMARICA
+================
+
+Za zagon dvakrat klikni bližnjico E-pesmaricaS z zeleno ikono.
+Ta način deluje tudi, ko je vključen Pametni nadzor aplikacij.
+
+Njihove pesmi (popolnoma enak vnos kot prej):
+  1 nato Enter
+
+Naše pesmi:
+  1 nato +
+
+Znak + takoj odpre našo pesem; Enter ni potreben.
+
+Med stranmi iste pesmi se premikaš s puščicama levo/desno,
+Page Up/Page Down ali preslednico.
+
+Ko je prikazana naša pesem:
+  - enkrat Esc skrije našo pesem in vrne njihov program;
+  - dvakrat Esc hitro zapre celotno skupno pesmarico.
+
+Ko je prikazana njihova pesem, ostanejo vse tipke in delovanje
+originalnega programa nespremenjeni.
+
+Originalni ePesmarica.exe in njihove datoteke niso spremenjeni.
+Skupni predvajalnik bere njihove pesmi neposredno iz kopije na USB-ju.
+
+Dodajanje ali posodabljanje naših pesmi:
+  1. V spletni aplikaciji odpri pesem in klikni Prenesi stran za USB.
+  2. Preneseno sliko (na primer pesem-017-1.jpg) kopiraj v mapo
+     dodane-pesmi ob programu E-pesmaricaS.
+  3. Znova odpri program. Kataloga ni treba spreminjati.
+
+Datoteka pesem-017-1.jpg je prva stran naše pesmi 17.
+Datoteka pesem-017-2.jpg je druga stran iste pesmi.
+Nova datoteka z isto številko in stranjo samodejno zamenja staro stran.

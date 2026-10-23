@@ -12,7 +12,20 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261011-swipe-fields" />
+    <link rel="stylesheet" href="styles.css?v=20261017-songbook-menu" />
+    <script>
+      if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+        let updateReloaded = false;
+        let edited = false;
+        document.addEventListener("input", () => { edited = true; });
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!updateReloaded && !edited) {
+            updateReloaded = true;
+            location.reload();
+          }
+        });
+      }
+    </script>
   </head>
   <body>
     <aside class="sidebar">
@@ -26,22 +39,22 @@
       <nav class="nav" aria-label="Glavna navigacija">
         <button class="nav-item active admin-only" data-view="mass">Maša</button>
         <button class="nav-item" data-view="songbook">Pesmarica</button>
+        <button class="nav-item admin-only" data-view="songs">Pesmi</button>
         <button class="nav-item admin-only" data-view="chords">Akordi</button>
         <button class="nav-item" data-view="calendar">Koledar</button>
         <button class="nav-item admin-only" data-view="people">Udeleženci</button>
       </nav>
       <div class="source-box admin-only">
         <span>Vir</span>
-        <strong>Google Sheet + Docs + Canva</strong>
-        <button id="syncCanva" class="sync-button">Osveži Canvo</button>
-        <small id="syncStatus">Canva pesmarica: pripravljeno</small>
+        <strong>Pesmi v aplikaciji + PDF iz Canve</strong>
+        <small id="syncStatus" role="status">Povezava s Canvo ni preverjena</small>
       </div>
     </aside>
 
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Delovni prototip</p>
+          <p class="eyebrow app-version">Različica 2026.10.23</p>
           <h2 id="viewTitle">Načrt svete maše</h2>
         </div>
         <div class="top-actions admin-only">
@@ -80,7 +93,9 @@
             <input id="massNote" type="text" placeholder="npr. družinska maša, zaključek leta" />
           </label>
           <button id="saveMass" class="primary">Shrani načrt</button>
+          <button id="printMassProgram" class="ghost" type="button"><span aria-hidden="true">&#128424;</span> Tiskaj spored</button>
         </div>
+        <p id="massProgramStatus" class="import-status no-print" role="status"></p>
         <div class="mass-calendar-panel">
           <div class="calendar-head">
             <button id="prevMassMonth" class="ghost" type="button">‹</button>
@@ -90,15 +105,27 @@
           <div id="massCalendar" class="mass-calendar"></div>
         </div>
         <div id="massSlots" class="slot-grid"></div>
+        <section class="upcoming-masses" aria-labelledby="upcomingMassesTitle">
+          <div class="toolbar calendar-list-head"><h3 id="upcomingMassesTitle">Prihodnje maše</h3></div>
+          <div id="upcomingMasses" class="calendar-event-list"></div>
+        </section>
       </section>
 
-      <section id="songs" class="view">
+      <section id="songs" class="view admin-only">
         <div class="split">
           <div>
             <div class="toolbar">
               <input id="songSearch" class="search" type="search" placeholder="Poišči pesem" />
+              <select id="songStatusFilter" aria-label="Prikaz pesmi">
+                <option value="">Vse pesmi</option>
+                <option value="inBook">V pesmarici</option>
+                <option value="missingBook">Ni v pesmarici</option>
+                <option value="hasChords">Z akordi</option>
+                <option value="missingChords">Brez akordov</option>
+              </select>
               <button id="newSong" class="primary">Nova pesem</button>
             </div>
+            <p id="songLibrarySummary" class="song-library-summary" aria-live="polite"></p>
             <div id="songList" class="song-list"></div>
           </div>
           <form id="songForm" class="editor">
@@ -115,15 +142,15 @@
               <input id="songLink" type="url" placeholder="https://..." />
             </label>
             <label>
-              Stran v pesmarici
-              <input id="songPage" type="number" min="1" />
+              Stalna številka pesmi
+              <input id="songPage" type="text" readonly />
             </label>
             <label class="checkbox">
               <input id="songKnown" type="checkbox" />
               Že znamo
             </label>
             <label class="checkbox">
-              <input id="songInBook" type="checkbox" />
+              <input id="songInBook" type="checkbox" disabled />
               V otroški pesmarici
             </label>
             <label>
@@ -131,6 +158,8 @@
               <textarea id="songLyrics" rows="12" placeholder="Besedilo brez akordov"></textarea>
             </label>
             <div class="form-actions">
+              <button id="addSongFromForm" class="ghost" type="button">+ Dodaj pesem</button>
+              <button id="openSongChords" class="ghost" type="button">Uredi akorde</button>
               <button class="primary" type="submit">Shrani pesem</button>
               <button id="deleteSong" class="danger" type="button">Izbriši</button>
             </div>
@@ -140,48 +169,68 @@
 
       <section id="songbook" class="view">
         <div class="toolbar songbook-toolbar no-print">
-          <input id="songbookSearch" class="search admin-only" type="search" placeholder="Poišči pesem v pesmarici" />
+          <input id="songbookSearch" class="search" type="search" placeholder="Poišči pesem v pesmarici" aria-label="Poišči pesem v pesmarici" />
           <label>
             Del maše
             <select id="songbookMassPart">
               <option value="">Vsi deli</option>
             </select>
           </label>
-          <label class="file-button admin-only">
-            Uvozi PDF iz Canve
-            <input id="importCanvaPdf" type="file" accept="application/pdf" />
-          </label>
-          <button id="saveSongbookToSongs" class="ghost push-right admin-only" type="button">Shrani pesmarico</button>
-          <button id="printSongbook" class="primary">Natisni pesmarico</button>
-          <a class="canva-open-link admin-only" href="https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit" target="_blank" rel="noreferrer">Odpri pesmarico v Canvi</a>
+          <button id="printSongbook" class="primary" type="button">Natisni pesmarico</button>
+          <details id="songbookOptions" class="songbook-options admin-only">
+            <summary title="Možnosti pesmarice" aria-label="Možnosti pesmarice">⋮</summary>
+            <div class="songbook-options-panel">
+              <button id="syncCanva" type="button">Direktni uvoz iz Canve</button>
+              <button id="songbookManualImport" type="button">Ročni uvoz iz Canve (PDF)</button>
+              <a href="https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit" target="_blank" rel="noreferrer">Odpri pesmarico v Canvi</a>
+              <button id="canvaConnection" type="button">Nastavitve povezave s Canvo</button>
+              <button id="saveSongbookToSongs" type="button">Shrani pesmarico na splet</button>
+              <button id="updatePresentation" type="button">Posodobi predstavitveni program</button>
+            </div>
+          </details>
+          <input id="importCanvaPdf" class="admin-only" type="file" accept="application/pdf" hidden />
         </div>
-        <div id="pdfImportStatus" class="import-status no-print admin-only"></div>
-        <div class="songbook-note no-print admin-only">
-          Za nove ali spremenjene strani izvozi pesmarico iz Canve kot PDF in uporabi gumb Uvozi PDF iz Canve.
-        </div>
+        <div id="pdfImportStatus" class="import-status no-print admin-only" role="status" aria-live="polite"></div>
         <div class="songbook-workspace">
           <div id="songbookPages" class="songbook-grid"></div>
-          <form id="songbookEditor" class="editor songbook-editor no-print admin-only">
-            <p class="section-label">Nastavitve pesmi</p>
-            <label>
-              Naslov
-              <input id="songbookTitle" />
-            </label>
-            <label>
-              Stran
-              <input id="songbookPageNumber" type="number" min="1" />
-            </label>
-            <fieldset class="mass-part-fieldset">
-              <legend>Deli maše</legend>
-              <div id="songbookMassParts" class="mass-part-checks"></div>
-            </fieldset>
-            <label>
-              Povezava
-              <input id="songbookLink" type="url" placeholder="https://..." />
-            </label>
-            <button class="primary" type="submit">Shrani nastavitve</button>
-          </form>
         </div>
+        <dialog id="songbookDialog" class="songbook-dialog no-print" aria-labelledby="songbookDialogTitle">
+          <div class="songbook-dialog-shell">
+            <header class="songbook-dialog-heading">
+              <h2 id="songbookDialogTitle"></h2>
+              <button id="closeSongbookDialog" class="dialog-close" type="button" title="Zapri pesem" aria-label="Zapri pesem" autofocus>×</button>
+            </header>
+            <div class="songbook-dialog-body">
+              <div id="songbookDialogPreview" class="songbook-dialog-preview"></div>
+              <form id="songbookEditor" class="editor songbook-editor no-print admin-only">
+                <p class="section-label">Nastavitve pesmi</p>
+                <label>
+                  Naslov
+                  <input id="songbookTitle" />
+                </label>
+                <label>
+                  Stalna številka pesmi
+                  <input id="songbookPermanentNumber" type="text" readonly />
+                </label>
+                <label>
+                  Stran PDF-ja
+                  <input id="songbookPageNumber" type="number" min="1" />
+                </label>
+                <fieldset class="mass-part-fieldset">
+                  <legend>Deli maše</legend>
+                  <div id="songbookMassParts" class="mass-part-checks"></div>
+                </fieldset>
+                <label>
+                  Povezava
+                  <input id="songbookLink" type="url" placeholder="https://..." />
+                </label>
+                <button id="downloadSongbookPageForUsb" type="button">Prenesi stran za USB</button>
+                <p class="muted usb-page-hint">Preneseno sliko dodaj v mapo <strong>dodane-pesmi</strong> na USB-ju.</p>
+                <button class="primary" type="submit">Shrani nastavitve</button>
+              </form>
+            </div>
+          </div>
+        </dialog>
         <article id="songbookPrint" class="songbook-print"></article>
       </section>
 
@@ -258,7 +307,7 @@
         </div>
         <div>
           <div class="toolbar calendar-list-head">
-            <h3>Dogodki iz nacrtov mas</h3>
+            <h3>Prihodnji dogodki iz načrtov maš</h3>
             <span id="calendarEventCount" class="muted"></span>
           </div>
           <div id="calendarEvents" class="calendar-event-list"></div>
@@ -321,22 +370,46 @@
       <dialog id="chordEditorDialog" class="chord-editor-dialog no-print" aria-labelledby="chordEditorDialogTitle">
         <form id="chordEditor" class="editor chord-editor">
           <div class="chord-editor-heading">
-            <p id="chordEditorDialogTitle" class="section-label">Akordi</p>
+            <h2 id="chordEditorDialogTitle" class="section-label">Akordi</h2>
             <button id="closeChordEditor" class="dialog-close" type="button" aria-label="Zapri urejevalnik" title="Zapri">&times;</button>
           </div>
-          <label>
-            Naslov
-            <input id="chordTitle" />
-          </label>
-          <label>
-            Prilepi ali uredi akorde
-            <textarea id="chordText" class="chord-textarea" spellcheck="false"></textarea>
-          </label>
-          <div id="inlineChordEditor" class="inline-chord-editor"></div>
+          <div class="chord-editor-body">
+            <div id="inlineChordEditor" class="inline-chord-editor chord-editor-preview"></div>
+            <div class="chord-editor-settings">
+              <p class="section-label">Nastavitve akordov</p>
+              <label>Stalna številka pesmi<input id="chordPermanentNumber" readonly /></label>
+              <label>Naslov<input id="chordTitle" /></label>
+              <label>
+                Besedilo in akordi
+                <textarea id="chordText" class="chord-textarea" spellcheck="false"></textarea>
+              </label>
+              <div class="form-actions">
+                <button id="transposeDown" class="ghost" type="button" title="Znižaj za pol tona">-1</button>
+                <button id="transposeUp" class="ghost" type="button" title="Zvišaj za pol tona">+1</button>
+                <button id="saveChords" class="primary" type="submit">Shrani akorde</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="canvaConnectionDialog" class="import-dialog no-print" aria-labelledby="canvaConnectionTitle">
+        <form id="canvaConnectionForm" class="editor import-dialog-panel canva-connection-panel" autocomplete="off">
+          <div class="install-help-heading">
+            <h3 id="canvaConnectionTitle">Povezava s Canvo</h3>
+            <button id="closeCanvaConnection" class="dialog-close" type="button" aria-label="Zapri" title="Zapri">&times;</button>
+          </div>
+          <label>Povratni naslov<input id="canvaRedirectUri" type="url" readonly value="https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site/api/canva/callback" /></label>
+          <div id="canvaConfigFields" class="canva-config-fields">
+            <label>Client ID<input id="canvaClientId" type="text" autocomplete="off" spellcheck="false" /></label>
+            <label>Client secret<input id="canvaClientSecret" type="password" autocomplete="off" spellcheck="false" /></label>
+          </div>
+          <p id="canvaConnectionStatus" class="muted" role="status"></p>
           <div class="form-actions">
-            <button id="transposeDown" class="ghost" type="button">-1</button>
-            <button id="transposeUp" class="ghost" type="button">+1</button>
-            <button id="saveChords" class="primary" type="submit">Shrani akorde</button>
+            <button id="canvaEditConfig" class="ghost" type="button" hidden>Spremeni nastavitve</button>
+            <button id="canvaSaveConnection" class="primary" type="submit">Shrani in poveži</button>
+            <button id="canvaConnectAccount" class="primary" type="button" hidden>Poveži račun</button>
+            <button id="canvaDisconnect" class="ghost" type="button" hidden>Prekini povezavo</button>
           </div>
         </form>
       </dialog>
@@ -382,12 +455,17 @@
         </div>
         <article id="printPage" class="print-page"></article>
       </section>
+      <article id="massProgramPrint" class="mass-program-print" aria-hidden="true"></article>
     </main>
 
     <script src="auth-config.js?v=20260915-public"></script>
-    <script src="auth.js?v=20260916-password"></script>
+    <script src="auth.js?v=20261016-remember"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="app.js?v=20261011-swipe-fields"></script>
+    <script src="song-catalog.js?v=20261017-chords"></script>
+    <script src="song-numbering.js?v=20261017-chords"></script>
+    <script src="canva-client.js?v=20261017-chords"></script>
+    <script src="presentation-update.js?v=20261022-usb-page"></script>
+    <script src="app.js?v=20261022-usb-page"></script>
     <script src="install-app.js?v=20261011-canva-fix"></script>
   </body>
 </html>
