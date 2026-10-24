@@ -1,4 +1,4 @@
-const CACHE_NAME = "zborcek-app-v20";
+const CACHE_NAME = "zborcek-app-v25";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,7 +8,7 @@ const APP_SHELL = [
   "./song-catalog.js?v=20261017-chords",
   "./song-numbering.js?v=20261017-chords",
   "./canva-client.js?v=20261017-chords",
-  "./presentation-update.js?v=20261022-usb-page",
+  "./presentation-update.js?v=20261024-smart-usb-update",
   "./app.js?v=20261022-usb-page",
   "./install-app.js?v=20261011-canva-fix",
   "./zborcek-predstavitev-pesmarica.js?v=20260915-public",

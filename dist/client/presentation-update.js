@@ -22,6 +22,20 @@ async function writePresentationFile(directory, name, content) {
   }
 }
 
+async function readPresentationTextFile(directory, name) {
+  const handle = await directory.getFileHandle(name);
+  const file = await handle.getFile();
+  return file.text();
+}
+
+async function presentationDirectoryFileNames(directory) {
+  const names = [];
+  for await (const [name, handle] of directory.entries()) {
+    if (handle.kind === "file") names.push(name);
+  }
+  return names;
+}
+
 function presentationImageFile(song) {
   const match = /^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=\s]+)$/.exec(song.imageDataUrl || "");
   if (!match) throw new Error(`Manjka slika pesmi št. ${song.number}.`);
@@ -78,14 +92,51 @@ async function downloadCurrentSongbookPageForUsb() {
 async function updatePresentationFolder(directory, payload, progress = () => {}) {
   const songs = payload.songs || [];
   if (!songs.length) throw new Error("Pesmarica je prazna.");
-  const numbers = new Set();
-  const images = songs.map((song) => {
-    if (!Number.isSafeInteger(song.number) || song.number < 1 || numbers.has(song.number)) {
-      throw new Error("Številke pesmi niso enolične. Najprej osveži pesmarico.");
+  const pageCounts = new Map();
+  const pages = songs.map((song) => {
+    if (!Number.isSafeInteger(song.number) || song.number < 1) {
+      throw new Error("Pesem nima veljavne stalne številke. Najprej osveži pesmarico.");
     }
-    numbers.add(song.number);
-    return presentationImageFile(song);
+    const pageIndex = (pageCounts.get(song.number) || 0) + 1;
+    pageCounts.set(song.number, pageIndex);
+    return { song, pageIndex, image: presentationImageFile(song) };
   });
+  const combinedPlayer = await presentationFileExists(directory, "E-pesmaricaS.ps1")
+    || await presentationFileExists(directory, "E-pesmaricaS.vbs")
+    || await presentationFileExists(directory, "E-pesmaricaS.core.cs");
+  if (combinedPlayer) {
+    const imageDirectory = await directory.getDirectoryHandle("predvajalnik-pesmi");
+    if (!await presentationFileExists(imageDirectory, "katalog.tsv")) throw new Error("V izbrani mapi manjka katalog pesmi.");
+    const dropDirectory = await directory.getDirectoryHandle("dodane-pesmi", { create: true });
+    const existingPages = new Set();
+    const catalogCounts = new Map();
+    const catalog = await readPresentationTextFile(imageDirectory, "katalog.tsv");
+    for (const rawLine of catalog.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const number = Number(line.split("\t", 1)[0]);
+      if (!Number.isSafeInteger(number) || number < 1) continue;
+      const pageIndex = (catalogCounts.get(number) || 0) + 1;
+      catalogCounts.set(number, pageIndex);
+      existingPages.add(`${number}:${pageIndex}`);
+    }
+    for (const name of await presentationDirectoryFileNames(dropDirectory)) {
+      const match = /^pesem-(\d+)(?:-(\d+))?\.(?:png|jpe?g)$/i.exec(name);
+      if (match) existingPages.add(`${Number(match[1])}:${Number(match[2] || 1)}`);
+    }
+
+    let added = 0;
+    for (const [index, page] of pages.entries()) {
+      const key = `${page.song.number}:${page.pageIndex}`;
+      if (existingPages.has(key)) continue;
+      const filename = `pesem-${String(page.song.number).padStart(3, "0")}-${page.pageIndex}.${page.image.extension}`;
+      progress(`Dodajam manjkajočo stran ${index + 1} od ${pages.length} ...`);
+      await writePresentationFile(dropDirectory, filename, page.image.bytes);
+      existingPages.add(key);
+      added += 1;
+    }
+    return { added, existing: pages.length - added, total: pages.length };
+  }
   const nativePlayer = await presentationFileExists(directory, "zborcek-predvajalnik.ps1");
   if (nativePlayer) {
     const imageDirectory = await directory.getDirectoryHandle("predvajalnik-pesmi");
@@ -94,7 +145,7 @@ async function updatePresentationFolder(directory, payload, progress = () => {})
     const rows = ["# številka\tdatoteka\tnaslov"];
     for (let index = 0; index < songs.length; index += 1) {
       const song = songs[index];
-      const image = images[index];
+      const image = pages[index].image;
       const filename = `stran-${song.number}-${updateId}.${image.extension}`;
       progress(`Posodabljam pesem ${index + 1} od ${songs.length} ...`);
       await writePresentationFile(imageDirectory, filename, image.bytes);
@@ -102,13 +153,13 @@ async function updatePresentationFolder(directory, payload, progress = () => {})
     }
     // Switch the catalog only after every new image has been written successfully.
     await writePresentationFile(imageDirectory, "katalog.tsv", rows.join("\r\n") + "\r\n");
-    return songs.length;
+    return { added: songs.length, existing: 0, total: songs.length };
   }
   if (await presentationFileExists(directory, "usb-predvajalnik.html")) {
     await writePresentationFile(directory, "zborcek-predstavitev-pesmarica.js", `window.ZBORCEK_SONGBOOK = ${JSON.stringify(payload)};`);
-    return songs.length;
+    return { added: songs.length, existing: 0, total: songs.length };
   }
-  throw new Error("Izberi mapo obstoječega predstavitvenega programa (zborcek-predvajalnik.ps1 ali usb-predvajalnik.html).");
+  throw new Error("Izberi glavno mapo programa E-pesmaricaS oziroma obstoječega predstavitvenega programa.");
 }
 
 async function updatePresentationProgram() {
@@ -124,8 +175,10 @@ async function updatePresentationProgram() {
     const directory = await window.showDirectoryPicker({ id: "zborcek-presentation", mode: "readwrite" });
     setPdfImportStatus("Pripravljam pesmi za obstoječi predstavitveni program ...");
     const payload = await presentationSongbookPayload({ requireImages: true });
-    const count = await updatePresentationFolder(directory, payload, setPdfImportStatus);
-    setPdfImportStatus(`Posodobljenih ${count} strani v mapi »${directory.name}«. Program lahko znova odpreš.`);
+    const result = await updatePresentationFolder(directory, payload, setPdfImportStatus);
+    setPdfImportStatus(result.added
+      ? `Dodanih ${result.added} manjkajočih strani v mapo »${directory.name}«. ${result.existing} strani je že bilo v programu.`
+      : `Program v mapi »${directory.name}« že vsebuje vseh ${result.total} strani. Dodajanje ni potrebno.`);
     return true;
   } catch (error) {
     setPdfImportStatus(error.name === "AbortError" ? "Posodobitev je preklicana." : `Posodobitev ni uspela: ${error.message}`);
