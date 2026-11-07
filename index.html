@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261017-songbook-menu" />
+    <link rel="stylesheet" href="styles.css?v=20261026-chat-calendar" />
     <script>
       if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
         let updateReloaded = false;
@@ -54,7 +54,7 @@
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow app-version">Različica 2026.10.24-5</p>
+          <p class="eyebrow app-version">Različica 2026.10.26-2</p>
           <h2 id="viewTitle">Načrt svete maše</h2>
         </div>
         <div class="top-actions admin-only">
@@ -68,6 +68,8 @@
         <button id="loginButton" class="ghost public-only" type="button">Prijava</button>
         <div class="admin-session admin-only">
           <span id="adminIdentity"></span>
+          <span id="liveSyncStatus" class="live-sync-status" role="status" aria-live="polite"></span>
+          <button id="resolveLiveConflict" class="ghost" type="button" hidden>Razreši spor</button>
           <button id="logoutButton" class="ghost" type="button">Odjava</button>
         </div>
       </header>
@@ -88,10 +90,6 @@
             Datum
             <input id="massDate" type="date" />
           </label>
-          <label>
-            Opomba
-            <input id="massNote" type="text" placeholder="npr. družinska maša, zaključek leta" />
-          </label>
           <button id="saveMass" class="primary">Shrani načrt</button>
           <button id="printMassProgram" class="ghost" type="button"><span aria-hidden="true">&#128424;</span> Tiskaj spored</button>
         </div>
@@ -104,6 +102,10 @@
           </div>
           <div id="massCalendar" class="mass-calendar"></div>
         </div>
+        <label class="mass-note-field">
+          Opomba
+          <input id="massNote" type="text" placeholder="npr. družinska maša, zaključek leta" />
+        </label>
         <div id="massSlots" class="slot-grid"></div>
         <section class="upcoming-masses" aria-labelledby="upcomingMassesTitle">
           <div class="toolbar calendar-list-head"><h3 id="upcomingMassesTitle">Prihodnje maše</h3></div>
@@ -112,7 +114,7 @@
       </section>
 
       <section id="songs" class="view admin-only">
-        <div class="split">
+        <div class="song-library-workspace">
           <div>
             <div class="toolbar">
               <input id="songSearch" class="search" type="search" placeholder="Poišči pesem" />
@@ -123,48 +125,44 @@
                 <option value="hasChords">Z akordi</option>
                 <option value="missingChords">Brez akordov</option>
               </select>
-              <button id="newSong" class="primary">Nova pesem</button>
+              <button id="newSong" class="primary" type="button">+ Dodaj pesem</button>
             </div>
             <p id="songLibrarySummary" class="song-library-summary" aria-live="polite"></p>
             <div id="songList" class="song-list"></div>
           </div>
+        </div>
+        <dialog id="newSongDialog" class="new-song-dialog no-print" aria-labelledby="newSongDialogTitle">
+          <header class="songbook-dialog-heading">
+            <h2 id="newSongDialogTitle">Nastavitve nove pesmi</h2>
+            <button id="closeNewSongDialog" class="dialog-close" type="button" title="Zapri" aria-label="Zapri dodajanje pesmi">×</button>
+          </header>
           <form id="songForm" class="editor">
             <label>
               Naslov
               <input id="songTitle" required />
             </label>
             <label>
-              Kategorije
-              <input id="songCategories" placeholder="Vstopna, Aleluja, Obhajilo" />
+              Stran PDF-ja
+              <input type="text" readonly value="" />
             </label>
+            <fieldset class="mass-part-fieldset">
+              <legend>Deli maše</legend>
+              <div id="songCategories" class="mass-part-checks"></div>
+            </fieldset>
             <label>
               Povezava
               <input id="songLink" type="url" placeholder="https://..." />
             </label>
-            <label>
-              Stalna številka pesmi
-              <input id="songPage" type="text" readonly />
-            </label>
-            <label class="checkbox">
-              <input id="songKnown" type="checkbox" />
-              Že znamo
-            </label>
-            <label class="checkbox">
-              <input id="songInBook" type="checkbox" disabled />
-              V otroški pesmarici
-            </label>
+            <label class="checkbox"><input id="songKnown" type="checkbox" /> Že znamo</label>
             <label>
               Besedilo
               <textarea id="songLyrics" rows="12" placeholder="Besedilo brez akordov"></textarea>
             </label>
             <div class="form-actions">
-              <button id="addSongFromForm" class="ghost" type="button">+ Dodaj pesem</button>
-              <button id="openSongChords" class="ghost" type="button">Uredi akorde</button>
-              <button class="primary" type="submit">Shrani pesem</button>
-              <button id="deleteSong" class="danger" type="button">Izbriši</button>
+              <button id="addSongFromForm" class="primary" type="submit">Dodaj pesem</button>
             </div>
           </form>
-        </div>
+        </dialog>
       </section>
 
       <section id="songbook" class="view">
@@ -194,6 +192,8 @@
         <div class="songbook-workspace">
           <div id="songbookPages" class="songbook-grid"></div>
         </div>
+        <article id="songbookPrint" class="songbook-print"></article>
+      </section>
         <dialog id="songbookDialog" class="songbook-dialog no-print" aria-labelledby="songbookDialogTitle">
           <div class="songbook-dialog-shell">
             <header class="songbook-dialog-heading">
@@ -206,15 +206,11 @@
                 <p class="section-label">Nastavitve pesmi</p>
                 <label>
                   Naslov
-                  <input id="songbookTitle" />
+                  <input id="songbookTitle" required />
                 </label>
                 <label>
-                  Stalna številka pesmi
-                  <input id="songbookPermanentNumber" type="text" readonly />
-                </label>
-                <label>
-                  Stran PDF-ja
-                  <input id="songbookPageNumber" type="number" min="1" />
+                  Številka v pesmarici
+                  <input id="songbookPrintNumber" type="number" min="1" step="1" />
                 </label>
                 <fieldset class="mass-part-fieldset">
                   <legend>Deli maše</legend>
@@ -224,16 +220,15 @@
                   Povezava
                   <input id="songbookLink" type="url" placeholder="https://..." />
                 </label>
-                <button id="downloadSongbookPageForUsb" type="button">Prenesi stran za USB</button>
-                <p class="muted usb-page-hint">Preneseno sliko dodaj v mapo <strong>dodane-pesmi</strong> na USB-ju.</p>
+                <label class="checkbox"><input id="songbookKnown" type="checkbox" /> Že znamo</label>
+                <label>Besedilo<textarea id="songbookLyrics" rows="6"></textarea></label>
+                <button id="openSongChords" class="ghost" type="button">Uredi akorde</button>
                 <button class="primary" type="submit">Shrani nastavitve</button>
+                <button id="deleteSongbookPage" class="danger" type="button">Izbriši stran iz pesmarice</button>
               </form>
             </div>
           </div>
         </dialog>
-        <article id="songbookPrint" class="songbook-print"></article>
-      </section>
-
       <section id="chords" class="view">
         <div class="toolbar no-print">
           <input id="chordSearch" class="search" type="search" placeholder="Poišči pesem z akordi" />
@@ -248,66 +243,66 @@
       </section>
 
       <section id="calendar" class="view">
-        <div class="calendar-layout">
-          <div class="calendar-connect-panel">
-            <p class="section-label">Google koledar</p>
-            <h3>Vaje in nastopi na enem mestu</h3>
-            <p class="muted">Dodaj nov dogodek ali deli koledar s starši in pevci.</p>
-            <form id="calendarEventForm" class="calendar-event-form admin-only">
-              <label>
-                Naslov dogodka
-                <input id="calendarEventTitle" type="text" placeholder="npr. Pevske vaje" required />
-              </label>
-              <label>
-                Datum
-                <input id="calendarEventDate" type="date" required />
-              </label>
-              <div class="calendar-event-time-grid">
-                <label>
-                  Začetek
-                  <input id="calendarEventStart" type="time" value="18:00" required />
-                </label>
-                <label>
-                  Konec
-                  <input id="calendarEventEnd" type="time" value="19:00" required />
-                </label>
-              </div>
-              <label>
-                Lokacija
-                <input id="calendarEventLocation" type="text" placeholder="npr. župnišče" />
-              </label>
-              <label>
-                Opis
-                <textarea id="calendarEventDescription" rows="3" placeholder="Dodatne informacije za udeležence"></textarea>
-              </label>
-              <button class="primary calendar-action" type="submit">Dodaj javni dogodek</button>
-              <p id="calendarEventStatus" class="calendar-event-status muted" role="status"></p>
-            </form>
-            <p class="section-label calendar-share-label">Povezava za udeležence</p>
-            <div class="calendar-actions">
-              <a id="googleCalendarOpen" class="primary calendar-action" href="#" target="_blank" rel="noreferrer">Dodaj v Google koledar</a>
-              <a id="googleCalendarIcs" class="ghost calendar-action admin-only" href="#" target="_blank" rel="noreferrer">Naroči se v telefonu</a>
-              <button id="downloadLocalIcs" class="ghost calendar-action admin-only" type="button">Prenesi dogodke (.ics)</button>
+        <section class="mass-calendar-panel event-calendar-panel" aria-labelledby="publicEventCalendarTitle">
+          <header class="event-calendar-toolbar">
+            <div class="calendar-head event-calendar-month-controls">
+              <button id="prevEventMonth" class="ghost" type="button" aria-label="Prejšnji mesec" title="Prejšnji mesec">&lsaquo;</button>
+              <strong id="publicEventCalendarTitle" aria-live="polite"></strong>
+              <button id="nextEventMonth" class="ghost" type="button" aria-label="Naslednji mesec" title="Naslednji mesec">&rsaquo;</button>
             </div>
-            <div id="calendarSetup" class="calendar-setup admin-only">
-              <strong>Za povezavo z Google koledarjem:</strong>
-              <ol>
-                <li>V Google Calendar ustvari koledar za Zborcek Sv. Trojice.</li>
-                <li>V nastavitvah koledarja vklopi javno deljenje.</li>
-                <li>V datoteki app.js vnesi Calendar ID v nastavitev GOOGLE_CALENDAR_ID.</li>
-              </ol>
+            <div class="toolbar event-calendar-actions">
+              <button id="todayEventMonth" class="ghost" type="button">Danes</button>
+              <button id="addCalendarEvent" class="primary admin-only" type="button">Dodaj v koledar</button>
+              <a id="googleCalendarOpen" class="ghost event-calendar-google-link" href="#" target="_blank" rel="noreferrer">Namesti v Google koledar</a>
             </div>
-          </div>
-          <div class="calendar-embed-panel">
-            <iframe id="googleCalendarFrame" title="Koledar dogodkov Zborcka Sv. Trojice" loading="lazy"></iframe>
-            <div id="calendarFallback" class="calendar-fallback">
-              Google koledar se bo prikazal tukaj, ko bo vpisan javni Calendar ID.
+          </header>
+          <div id="publicEventCalendar" class="event-month-grid" data-no-tab-swipe></div>
+        </section>
+        <dialog id="publicEventDialog" class="import-dialog calendar-event-dialog no-print" aria-labelledby="publicEventTitle">
+          <article class="editor import-dialog-panel">
+            <header class="person-dialog-heading">
+              <h2 id="publicEventTitle"></h2>
+              <button id="closePublicEvent" class="dialog-close" type="button" aria-label="Zapri dogodek" title="Zapri">&times;</button>
+            </header>
+            <p id="publicEventDate" class="section-label"></p>
+            <p id="publicEventDescription" class="public-event-description"></p>
+          </article>
+        </dialog>
+        <dialog id="newCalendarDialog" class="import-dialog calendar-event-dialog no-print" aria-labelledby="newCalendarDialogTitle">
+          <form id="newCalendarForm" class="editor import-dialog-panel">
+            <header class="person-dialog-heading">
+              <h2 id="newCalendarDialogTitle">Dodaj v koledar</h2>
+              <button id="closeNewCalendarEvent" class="dialog-close" type="button" aria-label="Zapri dodajanje dogodka" title="Zapri">&times;</button>
+            </header>
+            <label>Naslov dogodka<input id="newCalendarTitle" type="text" maxlength="160" required /></label>
+            <label>Datum<input id="newCalendarDate" type="date" required /></label>
+            <label>Opis<textarea id="newCalendarDescription" rows="3" maxlength="3000"></textarea></label>
+            <fieldset id="newCalendarColors" class="calendar-color-choices"><legend>Barva dogodka</legend></fieldset>
+            <label>Ponavljanje<select id="newCalendarRepeat"><option value="none">Se ne ponavlja</option><option value="weekly">Vsak teden</option></select></label>
+            <div id="newCalendarWeekly" class="calendar-repeat-controls" hidden>
+              <fieldset id="newCalendarWeekdays" class="calendar-weekday-choices">
+                <legend>Dnevi</legend>
+                <label><input type="checkbox" value="0" />Ponedeljek</label>
+                <label><input type="checkbox" value="1" />Torek</label>
+                <label><input type="checkbox" value="2" />Sreda</label>
+                <label><input type="checkbox" value="3" />Četrtek</label>
+                <label><input type="checkbox" value="4" />Petek</label>
+                <label><input type="checkbox" value="5" />Sobota</label>
+                <label><input type="checkbox" value="6" />Nedelja</label>
+              </fieldset>
+              <label>Ponavljaj do<input id="newCalendarUntil" type="date" /></label>
             </div>
-          </div>
-        </div>
+            <output id="newCalendarCount" class="muted" aria-live="polite"></output>
+            <p id="newCalendarStatus" class="calendar-event-status" role="status"></p>
+            <div class="form-actions">
+              <button id="cancelNewCalendarEvent" class="ghost" type="button">Prekliči</button>
+              <button class="primary" type="submit">Shrani</button>
+            </div>
+          </form>
+        </dialog>
         <div>
           <div class="toolbar calendar-list-head">
-            <h3>Prihodnji dogodki iz načrtov maš</h3>
+            <h3>Prihodnji dogodki</h3>
             <span id="calendarEventCount" class="muted"></span>
           </div>
           <div id="calendarEvents" class="calendar-event-list"></div>
@@ -319,24 +314,30 @@
           <button id="addPerson" class="primary">Dodaj udeleženca</button>
           <span class="muted">Osebni podatki naj ostanejo zasebni in zaščiteni.</span>
         </div>
-        <div class="table-wrap">
-          <table class="people-table">
-            <thead>
-              <tr>
-                <th>Ime</th>
-                <th>Rojstni datum / starost</th>
-                <th>Starši</th>
-                <th>Tel. št.</th>
-                <th>E-pošta</th>
-                <th>Naslov</th>
-                <th>Posebnosti</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="peopleRows"></tbody>
-          </table>
-        </div>
+        <div id="peopleRows" class="people-grid"></div>
       </section>
+
+      <dialog id="personDialog" class="import-dialog person-dialog no-print" aria-labelledby="personDialogTitle">
+        <form id="personForm" class="editor import-dialog-panel">
+          <header class="person-dialog-heading">
+            <h2 id="personDialogTitle">Dodaj udeleženca</h2>
+            <button id="closePersonDialog" class="dialog-close" type="button" title="Zapri" aria-label="Zapri podatke udeleženca">&times;</button>
+          </header>
+          <label>Ime <input id="personName" name="name" autocomplete="name" required /></label>
+          <label>Rojstni datum <input id="personBirthDate" name="birthDate" type="date" /></label>
+          <label>Starši <input id="personParents" name="parents" /></label>
+          <label>Tel. št. <input id="personPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" /></label>
+          <label>E-pošta <input id="personEmail" name="email" type="email" autocomplete="email" /></label>
+          <label>Naslov <input id="personAddress" name="address" autocomplete="street-address" /></label>
+          <label>Posebnosti <textarea id="personNotes" name="notes" rows="3"></textarea></label>
+          <p id="personFormStatus" role="status"></p>
+          <div class="form-actions">
+            <button id="deletePerson" class="danger" type="button" hidden>Izbriši udeleženca</button>
+            <button id="cancelPerson" class="ghost" type="button">Prekliči</button>
+            <button class="primary" type="submit">Shrani</button>
+          </div>
+        </form>
+      </dialog>
 
       <dialog id="chordImportDialog" class="import-dialog no-print">
         <form method="dialog" class="editor import-dialog-panel">
@@ -435,6 +436,12 @@
             <button id="closeInstallHelp" class="dialog-close" type="button" aria-label="Zapri" title="Zapri">&times;</button>
           </div>
           <p id="installHelpText"></p>
+          <div id="installChromeActions" class="install-browser-actions" hidden>
+            <a id="openInstallChrome" class="primary" href="#">Odpri v Chromu</a>
+            <label>Povezava do aplikacije<input id="installPublicUrl" type="url" readonly /></label>
+            <button id="copyInstallUrl" class="ghost" type="button">Kopiraj povezavo</button>
+            <p id="installCopyStatus" role="status"></p>
+          </div>
           <div class="form-actions">
             <button id="confirmInstallHelp" class="primary" type="button">Razumem</button>
           </div>
@@ -461,11 +468,29 @@
     <script src="auth-config.js?v=20260915-public"></script>
     <script src="auth.js?v=20261016-remember"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
-    <script src="song-catalog.js?v=20261017-chords"></script>
-    <script src="song-numbering.js?v=20261017-chords"></script>
-    <script src="canva-client.js?v=20261017-chords"></script>
-    <script src="presentation-update.js?v=20261024-smart-usb-update"></script>
-    <script src="app.js?v=20261022-usb-page"></script>
-    <script src="install-app.js?v=20261011-canva-fix"></script>
+    <script src="song-catalog.js?v=20261024-miklavz"></script>
+    <script src="song-numbering.js?v=20261025-distinct-arrangements"></script>
+    <script src="canva-client.js?v=20261024-new-pages"></script>
+    <script src="presentation-update.js?v=20261025-unified-usb"></script>
+    <dialog id="liveConflictDialog" class="import-dialog no-print" aria-labelledby="liveConflictTitle">
+      <div class="editor import-dialog-panel">
+        <header class="songbook-dialog-heading">
+          <h3 id="liveConflictTitle">Isto polje je bilo spremenjeno</h3>
+          <button id="closeLiveConflict" class="dialog-close" type="button" aria-label="Zapri" title="Zapri">&times;</button>
+        </header>
+        <p>Drug uporabnik je medtem spremenil isto polje. Kateri vnos želiš ohraniti?</p>
+        <div class="toolbar">
+          <button id="keepLiveLocal" class="primary" type="button">Ohrani moj vnos</button>
+          <button id="keepLiveRemote" class="ghost" type="button">Uporabi spletne podatke</button>
+        </div>
+      </div>
+    </dialog>
+    <script src="state-sync.js?v=20261025-live-sync"></script>
+    <script src="live-sync.js?v=20261025-live-sync"></script>
+    <script src="vendor/rrule-2.8.1.min.js"></script>
+    <script src="calendar-draft.js?v=20261025-calendar-repeat"></script>
+    <script src="calendar-events.js?v=20261026-chat-calendar"></script>
+    <script src="app.js?v=20261026-chord-transpose"></script>
+    <script src="install-app.js?v=20261025-chrome-install"></script>
   </body>
 </html>

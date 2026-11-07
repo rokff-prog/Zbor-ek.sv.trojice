@@ -28,6 +28,24 @@ function ensurePermanentSongNumbers(data, previous = null) {
   const reserved = new Set(Object.values(numbers));
   const usedEntries = new Set();
   const initialBook = !registry.bookInitialized;
+  const baseKyrieTitle = "gospodusmilise";
+  const torontoTitles = ["gospodusmilisesdmtoronto2002", "gospodusmilisetoronto"];
+  const isTorontoSong = (song) => Boolean(song && (song.catalogKey === "gospod-toronto-2002"
+    || song.id === "library-gospod-toronto-2002" || /\/song\/365\/?$/.test(song.link || "")
+    || torontoTitles.includes(permanentSongTitleKey(song.title))));
+  const torontoCanonical = data.songs.find((song) => song.catalogKey === "gospod-toronto-2002") || data.songs.find(isTorontoSong);
+  const linkedTorontoPage = (data.canvaPages || []).find((page) => Number(numbers[page.numberKey] || page.printNumber || page.page) === 32
+    && isTorontoSong(data.songs.find((song) => song.id === page.songId)));
+  const torontoSong = data.songs.find((song) => song.id === linkedTorontoPage?.songId) || torontoCanonical;
+  if (torontoCanonical) for (const song of data.songs) if (isTorontoSong(song)) song.libraryCanonicalId = torontoCanonical.id;
+  const baseKyrie = data.songs.find((song) => !isTorontoSong(song) && permanentSongTitleKey(song.title) === baseKyrieTitle);
+  // Repair historical cross-links without changing either printed number.
+  for (const [entry, song, titles] of [["print:12", baseKyrie, [baseKyrieTitle]], ["print:32", torontoSong, torontoTitles]]) {
+    if (!entries[entry]) continue;
+    entries[entry].songKey = song ? permanentSongKey(song) : "";
+    entries[entry].titleKeys = [...new Set([...entries[entry].titleKeys.filter((title) =>
+      title !== baseKyrieTitle && !torontoTitles.includes(title)), ...titles])];
+  }
   const allocate = () => {
     while (reserved.has(registry.nextNumber)) registry.nextNumber++;
     const number = registry.nextNumber++;
@@ -38,17 +56,27 @@ function ensurePermanentSongNumbers(data, previous = null) {
   for (const page of pages) {
     const titleKey = permanentSongTitleKey(page.title);
     const linked = data.songs.find((item) => item.id === page.songId);
-    const torontoTitles = entries["print:32"]?.titleKeys || [];
     const isToronto = torontoTitles.includes(titleKey);
-    const linkedIsToronto = torontoTitles.includes(permanentSongTitleKey(linked?.title));
+    const linkedIsToronto = isTorontoSong(linked);
     const exact = data.songs.find((item) => permanentSongTitleKey(item.title) === titleKey)
       || (isToronto ? data.songs.find((item) => torontoTitles.includes(permanentSongTitleKey(item.title))) : null);
     const incompatible = (titleKey === "gospodusmilise" && linkedIsToronto) || (isToronto && !linkedIsToronto);
-    const song = exact || (!incompatible ? linked : null);
+    const printed = Number(numbers[page.numberKey] || page.printNumber || page.page);
+    const kyriePage = titleKey === baseKyrieTitle || isToronto || linkedIsToronto;
+    const fixedArrangement = kyriePage && (printed === 12 || printed === 32);
+    const song = fixedArrangement ? (printed === 32 ? torontoSong : baseKyrie)
+      : (page.cover ? data.songs.find((item) => item.id === "songbook-cover") || data.songs.find((item) => item.isCover) : null)
+        || exact || (!incompatible ? linked : null);
     // A stale ID must not join the old Kyrie and the Toronto arrangement.
     if (song) page.songId = song.id;
-    else if (linked && permanentSongTitleKey(linked.title) !== titleKey) delete page.songId;
+    else if (linked && (fixedArrangement || permanentSongTitleKey(linked.title) !== titleKey)) delete page.songId;
     const cover = page.cover || song?.isCover || (initialBook && Number(page.page) === 1);
+    if (page.cover) {
+      const previousKey = previous?.canvaPages?.find((item) => item.id === page.id)?.numberKey || page.numberKey;
+      if (previousKey && previousKey !== "print:1" && !pages.some((item) => item !== page && item.numberKey === previousKey)) {
+        entries[previousKey] = { songKey: "", titleKeys: [] };
+      }
+    }
     const songKey = song ? permanentSongKey(song) : "";
     const matches = (key) => !usedEntries.has(key) && valid(numbers[key])
       && (entries[key]?.titleKeys.includes(titleKey) || (songKey && entries[key]?.songKey === songKey));
@@ -65,7 +93,7 @@ function ensurePermanentSongNumbers(data, previous = null) {
     }
     const number = numbers[key];
     entries[key] = { songKey: songKey || entries[key]?.songKey || "",
-      titleKeys: [...new Set([...(entries[key]?.titleKeys || []), titleKey])] };
+      titleKeys: [...new Set([...(entries[key]?.titleKeys || []), key === "print:32" && titleKey === baseKyrieTitle ? torontoTitles[0] : titleKey])] };
     usedEntries.add(key);
     reserved.add(number);
     registry.nextNumber = Math.max(registry.nextNumber, number + 1);
@@ -76,8 +104,8 @@ function ensurePermanentSongNumbers(data, previous = null) {
   for (const song of data.songs) {
     const key = permanentSongKey(song);
     const titleKey = permanentSongTitleKey(song.title);
-    const printNumbers = [...new Set(Object.keys(entries).filter((entry) => valid(numbers[entry]) && (entries[entry].songKey === key
-      || entries[entry].titleKeys.includes(titleKey) || (song.isCover && entry === "print:1")))
+    const printNumbers = [...new Set(Object.keys(entries).filter((entry) => valid(numbers[entry]) && ((entries[entry].songKey
+      ? entries[entry].songKey === key : entries[entry].titleKeys.includes(titleKey)) || (song.isCover && entry === "print:1")))
       .map((entry) => numbers[entry]))].sort((a, b) => a - b);
     if (printNumbers.length) {
       song.printNumbers = printNumbers;

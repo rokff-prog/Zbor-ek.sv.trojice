@@ -2,6 +2,18 @@ window.ZBORCEK_SONG_CATALOG = {
   "version": "2026-10-17-library-3",
   "chordCorrections": [
     {
+      "version": "user-image-pridi-sveti-miklavz-2026-10-24-v1",
+      "title": "Pridi, sveti Miklavž",
+      "link": "",
+      "inlineChords": "[C]Pridi, sveti Miklav[G]ž,\n[F]mi ča[G]kamo [C]te.\n[C]Pridi, sveti Miklav[G]ž,\n[F]obda[G]ri nas otroke [C]vse. (2x)\n\n[C]Letos priden sem [G]bil,\n[G]vsak dan sem posodo [C]pomil,\n[C]mamico in očka [G]objel,\n[F]vse [G]rad sem [C]imel.\n\n[C]Pridi, sveti Miklav[G]ž,\n[F]mi ča[G]kamo [C]te.\n[C]Pridi, sveti Miklav[G]ž,\n[F]obda[G]ri nas otroke [C]vse. (2x)\n\n[C]Pismo pisal sem [G]ti,\n[G]zlato knjigo naj ti [C]krasi,\n[C]meni pa darilo bo [G]to,\n[F]kot [G]pravo [C]zlato.\n\n[C]Pridi, sveti Miklav[G]ž,\n[F]mi ča[G]kamo [C]te.\n[C]Pridi, sveti Miklav[G]ž,\n[F]obda[G]ri nas otroke [C]vse. (2x)"
+    },
+    {
+      "version": "user-images-poglej-lucko-2026-10-24-v1",
+      "title": "Poglej to lučko",
+      "link": "",
+      "inlineChords": "[D]Poglej to lučko, [D]poglej ta sij,\nki seže do [G]srca in [D]greje.\n[e]Greje še tako [G]majhen cvet,\n[e]greje bitje, ki [G]hoče živet\nin [D]čaka, še zmeraj čaka.\n\n[D]Kdo je dal to lučko v [D]temo sveta,\nda prižiga v [G]nas dan in [D]greje?\n[e]Kdo je hotel, da tu [G]stoji,\n[e]ko ugasnejo [G]vse luči\nin [D]čaka, o, poglej, kako čaka,\nčaka le na tvoj [A]korak.\n\nV[e]zemi to [A7]lučko, naj te [D]spremlja po[G]vsod.\n[e]Majhen, bel pla[A7]menček osvetli [D]ti bo [D7]pot.\nV[G]zemi roko, ki ob [A]poti bo čakala,\n[G]osamljenost, potr[A]tost ti bo priznala,\n[G]daj ji v roke [A7]luč, pojdita skupaj za [D]njo.\n\n[D]Bog je dal to lučko, [D]želel je, da sveti\nvsem ljudem [G]sveta in [D]greje.\n[e]Kdor pa lučko le [G]zase drži,\n[e]ta svetlobe te [G]vreden ni, naj [D]čaka,\nmorda pa dočaka,dočaka tvoj [A]korak.[A7]\n\nP[e]rosim Te, [A7]Oče, ne [D]vzemi je na[G]zaj.\nV [e]mojem srcu [A7]bo sijala, [D]veko[D7]maj.\nV tej [G]pesmi bom samo še to za[A]pisala:\n\"[G]hvala za to [A7]luč, še enkrat [D]hvala.\""
+    },
+    {
       "version": "jubilate-116-2026-10-16-v2",
       "title": "Ko Jezus je začel učiti",
       "link": "https://jubilate.donbosko.si/song/116",
@@ -1028,6 +1040,14 @@ window.ZBORCEK_SONG_CATALOG = {
         "Marijine"
       ],
       "known": true,
+      "link": ""
+    },
+    {
+      "key": "pridi-sveti-miklavz",
+      "title": "Pridi, sveti Miklavž",
+      "aliases": ["Pridi sveti Miklavž"],
+      "categories": ["Božične"],
+      "known": false,
       "link": ""
     },
     {

@@ -28,6 +28,12 @@ async function readPresentationTextFile(directory, name) {
   return file.text();
 }
 
+async function readPresentationImageBytes(directory, name) {
+  const handle = await directory.getFileHandle(name);
+  const file = await handle.getFile();
+  return new Uint8Array(await file.arrayBuffer());
+}
+
 async function presentationDirectoryFileNames(directory) {
   const names = [];
   for await (const [name, handle] of directory.entries()) {
@@ -108,34 +114,42 @@ async function updatePresentationFolder(directory, payload, progress = () => {})
     const imageDirectory = await directory.getDirectoryHandle("predvajalnik-pesmi");
     if (!await presentationFileExists(imageDirectory, "katalog.tsv")) throw new Error("V izbrani mapi manjka katalog pesmi.");
     const dropDirectory = await directory.getDirectoryHandle("dodane-pesmi", { create: true });
-    const existingPages = new Set();
-    const catalogCounts = new Map();
     const catalog = await readPresentationTextFile(imageDirectory, "katalog.tsv");
-    for (const rawLine of catalog.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith("#")) continue;
-      const number = Number(line.split("\t", 1)[0]);
-      if (!Number.isSafeInteger(number) || number < 1) continue;
-      const pageIndex = (catalogCounts.get(number) || 0) + 1;
-      catalogCounts.set(number, pageIndex);
-      existingPages.add(`${number}:${pageIndex}`);
+    const names = new Set(await presentationDirectoryFileNames(dropDirectory));
+    const wanted = new Set(), changes = [], stale = [];
+    const rows = ["# številka\tdatoteka\tnaslov"];
+    let existing = 0;
+    for (const page of pages) {
+      const name = `pesem-${String(page.song.number).padStart(3, "0")}-${page.pageIndex}.${page.image.extension}`;
+      wanted.add(name);
+      rows.push(`${page.song.number}\t../dodane-pesmi/${name}\t${String(page.song.title || "Brez naslova").replace(/[\t\r\n]+/g, " ")}`);
+      const previous = names.has(name) ? await readPresentationImageBytes(dropDirectory, name) : null;
+      if (previous && previous.length === page.image.bytes.length && previous.every((byte, index) => byte === page.image.bytes[index])) existing++;
+      else changes.push({ name, bytes: page.image.bytes, previous });
     }
-    for (const name of await presentationDirectoryFileNames(dropDirectory)) {
-      const match = /^pesem-(\d+)(?:-(\d+))?\.(?:png|jpe?g)$/i.exec(name);
-      if (match) existingPages.add(`${Number(match[1])}:${Number(match[2] || 1)}`);
+    for (const name of names) {
+      if (/^pesem-\d+(?:-\d+)?\.(?:png|jpe?g)$/i.test(name) && !wanted.has(name)) {
+        stale.push({ name, bytes: await readPresentationImageBytes(dropDirectory, name) });
+      }
     }
-
-    let added = 0;
-    for (const [index, page] of pages.entries()) {
-      const key = `${page.song.number}:${page.pageIndex}`;
-      if (existingPages.has(key)) continue;
-      const filename = `pesem-${String(page.song.number).padStart(3, "0")}-${page.pageIndex}.${page.image.extension}`;
-      progress(`Dodajam manjkajočo stran ${index + 1} od ${pages.length} ...`);
-      await writePresentationFile(dropDirectory, filename, page.image.bytes);
-      existingPages.add(key);
-      added += 1;
+    const nextCatalog = rows.join("\r\n") + "\r\n";
+    // Back up every replaced/retired file before changing the working catalog.
+    if (catalog !== nextCatalog || stale.length || changes.some((change) => change.previous)) {
+      const backups = await imageDirectory.getDirectoryHandle("varnostne-kopije", { create: true });
+      const backup = await backups.getDirectoryHandle(crypto.randomUUID(), { create: true });
+      await writePresentationFile(backup, "katalog.tsv", catalog);
+      for (const change of changes) if (change.previous) await writePresentationFile(backup, change.name, change.previous);
+      for (const file of stale) await writePresentationFile(backup, file.name, file.bytes);
     }
-    return { added, existing: pages.length - added, total: pages.length };
+    let added = 0, updated = 0;
+    for (const [index, change] of changes.entries()) {
+      progress(`Shranjujem stran ${index + 1} od ${changes.length} v mapo »dodane-pesmi« ...`);
+      await writePresentationFile(dropDirectory, change.name, change.bytes);
+      if (change.previous) updated++; else added++;
+    }
+    if (catalog !== nextCatalog) await writePresentationFile(imageDirectory, "katalog.tsv", nextCatalog);
+    for (const file of stale) await dropDirectory.removeEntry(file.name);
+    return { added, updated, existing, total: pages.length, archived: stale.length, folder: "dodane-pesmi" };
   }
   const nativePlayer = await presentationFileExists(directory, "zborcek-predvajalnik.ps1");
   if (nativePlayer) {
@@ -176,9 +190,7 @@ async function updatePresentationProgram() {
     setPdfImportStatus("Pripravljam pesmi za obstoječi predstavitveni program ...");
     const payload = await presentationSongbookPayload({ requireImages: true });
     const result = await updatePresentationFolder(directory, payload, setPdfImportStatus);
-    setPdfImportStatus(result.added
-      ? `Dodanih ${result.added} manjkajočih strani v mapo »${directory.name}«. ${result.existing} strani je že bilo v programu.`
-      : `Program v mapi »${directory.name}« že vsebuje vseh ${result.total} strani. Dodajanje ni potrebno.`);
+    setPdfImportStatus(`Dodanih ${result.added}, posodobljenih ${result.updated || 0} strani. V mapi »${result.folder || directory.name}« je vseh ${result.total} strani. Program lahko znova odpreš.`);
     return true;
   } catch (error) {
     setPdfImportStatus(error.name === "AbortError" ? "Posodobitev je preklicana." : `Posodobitev ni uspela: ${error.message}`);

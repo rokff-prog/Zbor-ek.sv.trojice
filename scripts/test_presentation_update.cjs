@@ -11,7 +11,10 @@ const makeDirectory = (name) => {
   const directory = { name, files, directories, writes, failAt: "",
     async getFileHandle(filename, options = {}) {
       if (!files.has(filename) && !options.create) throw Object.assign(new Error("Missing"), { name: "NotFoundError" });
-      return { kind: "file", async getFile() { return { async text() { return String(files.get(filename) || ""); } }; }, async createWritable() {
+      return { kind: "file", async getFile() { return {
+        async text() { return String(files.get(filename) || ""); },
+        async arrayBuffer() { const bytes = Buffer.from(files.get(filename) || []); return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
+      }; }, async createWritable() {
         let pending;
         return {
           async write(content) { if (directory.failAt && filename.includes(directory.failAt)) throw new Error("Disk full"); pending = content; },
@@ -25,6 +28,7 @@ const makeDirectory = (name) => {
       return directories.get(dirname);
     },
     async *entries() { for (const filename of files.keys()) yield [filename, { kind: "file" }]; },
+    async removeEntry(filename) { if (!files.delete(filename)) throw new Error("Missing file"); },
   };
   return directory;
 };
@@ -97,19 +101,37 @@ async function main() {
   combinedImages.files.set("katalog.tsv", "# številka\tdatoteka\tnaslov\r\n1\tstran-01.jpg\tPrva\r\n31\tstran-31.jpg\tDruga\r\n");
   context.combined = combined;
   let combinedResult = JSON.parse(JSON.stringify(await run("updatePresentationFolder(combined, payload)")));
-  assert.deepEqual(combinedResult, { added: 1, existing: 2, total: 3 });
-  assert.deepEqual(dropped.writes, ["pesem-032-1.png"]);
+  assert.deepEqual(combinedResult, { added: 3, updated: 0, existing: 0, total: 3, archived: 0, folder: "dodane-pesmi" });
+  assert.deepEqual(dropped.writes, ["pesem-001-1.png", "pesem-031-1.png", "pesem-032-1.png"], "Every page, including cover 1, is in the same visible folder");
+  assert.match(combinedImages.files.get("katalog.tsv"), /1\t\.\.\/dodane-pesmi\/pesem-001-1.png/);
+  const backups = combinedImages.directories.get("varnostne-kopije");
+  assert.ok([...backups.directories.values()].some((backup) => backup.files.get("katalog.tsv").includes("stran-01.jpg")), "Keep the old catalog as a backup before replacing stale numbering");
   combinedResult = JSON.parse(JSON.stringify(await run("updatePresentationFolder(combined, payload)")));
-  assert.deepEqual(combinedResult, { added: 0, existing: 3, total: 3 });
-  assert.deepEqual(dropped.writes, ["pesem-032-1.png"], "Existing pages are never overwritten");
+  assert.deepEqual(combinedResult, { added: 0, updated: 0, existing: 3, total: 3, archived: 0, folder: "dodane-pesmi" });
+  assert.equal(dropped.writes.length, 3, "Unchanged pages are never rewritten");
   const twoPageSong = { songs: [
     { number: 30, title: "Prva stran", imageDataUrl: png },
     { number: 30, title: "Druga stran", imageDataUrl: png },
   ] };
   context.twoPageSong = twoPageSong;
   combinedResult = JSON.parse(JSON.stringify(await run("updatePresentationFolder(combined, twoPageSong)")));
-  assert.deepEqual(combinedResult, { added: 2, existing: 0, total: 2 });
+  assert.deepEqual(combinedResult, { added: 2, updated: 0, existing: 0, total: 2, archived: 3, folder: "dodane-pesmi" });
   assert.deepEqual(dropped.writes.slice(-2), ["pesem-030-1.png", "pesem-030-2.png"]);
+  assert.equal(dropped.files.has("pesem-001-1.png"), false, "Retired images must not override the new catalog");
+  assert.ok([...backups.directories.values()].some((backup) => backup.files.has("pesem-001-1.png")), "Retired images are archived, not discarded");
+  dropped.files.set("opomba.txt", "keep this personal file");
+  const changed = Buffer.from(png.split(',')[1], 'base64'); changed[changed.length - 1] ^= 1;
+  context.changedPage = { songs: twoPageSong.songs.map((song, index) => index ? song : { ...song, imageDataUrl: 'data:image/png;base64,' + changed.toString('base64') }) };
+  combinedResult = JSON.parse(JSON.stringify(await run("updatePresentationFolder(combined, changedPage)")));
+  assert.equal(combinedResult.updated, 1, "Replacing an existing image is detected even when its printed number stays the same");
+  assert.equal(combinedResult.existing, 1);
+  assert.deepEqual(Buffer.from(dropped.files.get("pesem-030-1.png")), changed);
+  assert.equal(dropped.files.get("opomba.txt"), "keep this personal file");
+  const workingCatalog = combinedImages.files.get("katalog.tsv");
+  dropped.failAt = "pesem-041-";
+  await assert.rejects(run("updatePresentationFolder(combined, {songs:[...changedPage.songs,{number:41,title:'New',imageDataUrl:payload.songs[0].imageDataUrl}]})"), /Disk full/);
+  assert.equal(combinedImages.files.get("katalog.tsv"), workingCatalog, "Failed image writes must not publish a new catalog");
+  dropped.failAt = "";
   assert.equal(await run("downloadCurrentSongbookPageForUsb()"), true);
   assert.deepEqual(downloaded, ["pesem-030-2.png"]);
   assert.match(messages.at(-1), /dodane-pesmi/);
@@ -126,6 +148,6 @@ async function main() {
   assert.match(messages.at(-1), /Chrome ali Edge/);
   run("isAdminView = false");
   assert.equal(await run("updatePresentationProgram()"), false);
-  console.log("Presentation updates: combined player adds only missing pages (including multi-page songs), existing Windows/HTML players still update, invalid data/failure/cancellation handling OK. Folder permission UI not exercised.");
+  console.log("Presentation updates: all pages including cover in one folder, current-number catalog, changed-image detection, unchanged-file skipping, backup/archive safety, multiple pages and failure/cancellation handling OK. Folder permission UI not exercised.");
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

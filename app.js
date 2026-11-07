@@ -64,6 +64,8 @@ let canvaPageImages = new Map();
 let remoteSaveTimer = null;
 let remoteStateLoadedForAdmin = false;
 let suppressRemoteSave = false;
+let liveSync = null;
+let liveRenderPending = false;
 
 const importedChordSheets = {
   "Ves dan vso noč": `E
@@ -681,11 +683,13 @@ seedData.massHistory = makeImportedMassHistory(seedData, [
 let state = loadState();
 let selectedSongId = state.songs[0]?.id || null;
 let selectedSongbookPageId = null;
+let songDialogReturnSongId = null;
 let selectedChordSongId = null;
 let currentChordTokens = [];
 let activeChordInputIndex = null;
 let chordAddMode = false;
 let visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : new Date().toISOString().slice(0, 7);
+let visibleEventMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit" }).format(new Date());
 let isAdminView = Boolean(window.zborcekAuth?.state?.isAdmin);
 migrateState();
 backupChords();
@@ -722,6 +726,7 @@ function persist() {
     console.warn("Lokalno shranjevanje ni uspelo.", error);
   }
   if (isAdminView && !suppressRemoteSave && !IS_GITHUB_PUBLIC) {
+    liveSync?.dirty();
     clearTimeout(remoteSaveTimer);
     remoteSaveTimer = setTimeout(() => saveStateToServer().catch(console.error), 700);
   }
@@ -769,6 +774,7 @@ async function apiFetch(path, options = {}) {
 
 async function saveStateToServer() {
   if (!isAdminView || IS_GITHUB_PUBLIC) return false;
+  if (liveSync) return liveSync.save();
   const response = await apiFetch("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -794,6 +800,7 @@ function applyRemotePublicState(remote) {
     });
   }
   if (Array.isArray(remote.massHistory)) state.massHistory = remote.massHistory;
+  if (Array.isArray(remote.calendarEvents)) state.calendarEvents = remote.calendarEvents;
   if (Array.isArray(remote.canvaPages)) state.canvaPages = remote.canvaPages;
   if (remote.songNumbering) state.songNumbering = remote.songNumbering;
   if (remote.canva) state.canva = remote.canva;
@@ -801,6 +808,7 @@ function applyRemotePublicState(remote) {
 }
 
 async function loadRemotePublicState() {
+  if (liveSync) return liveSync.refresh(true).catch(console.warn);
   try {
     const response = await apiFetch("/api/public-state");
     if (response.ok) applyRemotePublicState(await response.json());
@@ -819,6 +827,7 @@ async function loadRemoteSongbook() {
 }
 
 async function loadRemoteAdminState() {
+  if (liveSync && isAdminView && !IS_GITHUB_PUBLIC) return liveSync.refresh(true).catch(console.warn);
   if (remoteStateLoadedForAdmin || !isAdminView || IS_GITHUB_PUBLIC) return;
   remoteStateLoadedForAdmin = true;
   try {
@@ -874,15 +883,20 @@ function migrateState() {
       refreshedImportedDates.add(entry.date);
     }
   }
-  if (state.mass?.date && Object.values(state.mass.selections || {}).some(Boolean) && !state.massHistory.some((item) => item.date === state.mass.date)) {
+  if (state.mass?.date && (Object.values(state.mass.selections || {}).some(Boolean) || Object.keys(state.mass.partLabels || {}).length) && !state.massHistory.some((item) => item.date === state.mass.date)) {
     state.massHistory.push({
       date: state.mass.date,
       note: state.mass.note || "",
       selections: { ...(state.mass.selections || {}) },
+      partLabels: { ...(state.mass.partLabels || {}) },
       source: "app",
     });
   }
   const currentMassEntry = state.massHistory.find((item) => item.date === state.mass?.date);
+  if (currentMassEntry && !currentMassEntry.partLabels && state.mass.partLabels) {
+    currentMassEntry.partLabels = { ...state.mass.partLabels };
+  }
+  if (state.mass) state.mass.partLabels = { ...(currentMassEntry?.partLabels || state.mass.partLabels || {}) };
   const currentSelectionCount = Object.values(state.mass?.selections || {}).filter(Boolean).length;
   const historySelectionCount = Object.values(currentMassEntry?.selections || {}).filter(Boolean).length;
   if (currentMassEntry && ((!currentMassEntry.editedByUser && currentSelectionCount < historySelectionCount) || refreshedImportedDates.has(state.mass?.date))) {
@@ -1001,44 +1015,25 @@ async function getCurrentCanvaPageHashes(records) {
 
 async function loadCanvaPageImages() {
   const records = await loadCanvaPageRecords();
-
   const bundledSongs = window.ZBORCEK_SONGBOOK?.songs || [];
-  if (!records.length && bundledSongs.length) {
-    canvaPageImages = new Map(bundledSongs
-      .filter((song) => song.imageDataUrl)
-      .map((song) => [Number(song.page || song.number), song.imageDataUrl]));
-    const savedPages = new Map((state.canvaPages || []).map((page) => [Number(page.canvaDbPage || page.page), page]));
+  if (!state.canvaPages?.length && !state.canva?.pagesInitialized && (records.length || bundledSongs.length)) {
     const bundledByPage = new Map(bundledSongs.map((song, index) => [Number(song.page || index + 1), song]));
-    const pageNumbers = new Set([...bundledByPage.keys(), ...savedPages.keys()]);
+    const pageNumbers = new Set([...bundledByPage.keys(), ...records.map((record) => record.page)]);
     state.canvaPages = [...pageNumbers].map((pageNumber) => ({
       id: `canva-page-${pageNumber}`,
       page: pageNumber,
       canvaDbPage: pageNumber,
       title: bundledByPage.get(pageNumber)?.title || `Canva stran ${pageNumber}`,
       copies: 0,
-      ...savedPages.get(pageNumber),
     })).sort((a, b) => a.page - b.page);
-    const repaired = repairSongbookMetadata();
-    if (refreshSongbookMembership() || repaired) persist();
-    return;
-  }
-
-  for (const url of canvaPageImages.values()) URL.revokeObjectURL(url);
-  canvaPageImages = new Map(records.map((record) => [record.page, URL.createObjectURL(record.blob)]));
-
-  if (records.length && (!state.canvaPages || state.canvaPages.length !== records.length)) {
-    const savedPages = new Map((state.canvaPages || []).map((page) => [Number(page.canvaDbPage || page.page), page]));
-    state.canvaPages = records
-      .map((record) => ({
-        id: `canva-page-${record.page}`,
-        page: record.page,
-        canvaDbPage: record.page,
-        title: `Canva stran ${record.page}`,
-        copies: 0,
-        ...savedPages.get(Number(record.page)),
-      }))
-      .sort((a, b) => a.page - b.page);
     persist();
+  }
+  for (const url of canvaPageImages.values()) URL.revokeObjectURL(url);
+  const known = new Set((state.canvaPages || []).map((page) => Number(page.canvaDbPage || page.page)));
+  canvaPageImages = new Map(bundledSongs.filter((song) => song.imageDataUrl && known.has(Number(song.page || song.number)))
+    .map((song) => [Number(song.page || song.number), song.imageDataUrl]));
+  for (const record of records) {
+    if (known.has(Number(record.page))) canvaPageImages.set(Number(record.page), URL.createObjectURL(record.blob));
   }
   const repaired = repairSongbookMetadata();
   if (refreshSongbookMembership() || repaired) persist();
@@ -1067,8 +1062,10 @@ function importSongLibrary() {
         matches.push(song);
       }
       song.catalogKey = entry.key;
-      song.title = entry.title;
-      song.categories = [...entry.categories];
+      if (!song.settingsEditedByUser) {
+        song.title = entry.title;
+        song.categories = [...entry.categories];
+      }
       song.link = song.link || entry.link || "";
       song.known = Boolean(song.known || entry.known);
       for (const match of matches) match.libraryCanonicalId = song.id;
@@ -1090,7 +1087,7 @@ function importSongLibrary() {
   }
   for (const correction of catalog.chordCorrections || []) {
     for (const song of state.songs) {
-      if (songbookTitleKey(song.title) !== songbookTitleKey(correction.title) && song.link !== correction.link) continue;
+      if (songbookTitleKey(song.title) !== songbookTitleKey(correction.title) && (!correction.link || song.link !== correction.link)) continue;
       if (song.chordRevision === correction.version) continue;
       if (song.chords || song.inlineChords) {
         song.chordHistory = [...(song.chordHistory || []), {
@@ -1098,7 +1095,7 @@ function importSongLibrary() {
         }];
       }
       song.title = correction.title;
-      song.link = correction.link;
+      song.link = correction.link || song.link || "";
       song.chords = correction.inlineChords;
       song.inlineChords = correction.inlineChords;
       song.lyrics = inlineTextToLyrics(correction.inlineChords);
@@ -1164,7 +1161,7 @@ function songbookCatalogForTitle(title) {
 function repairSongbookMetadata() {
   let changed = false;
   for (const page of state.canvaPages || []) {
-    if (page.metadataVersion === SONGBOOK_METADATA_VERSION) continue;
+    if (page.settingsEditedByUser || page.metadataVersion === SONGBOOK_METADATA_VERSION) continue;
     const entry = SONGBOOK_PAGE_CATALOG[Number(page.canvaDbPage || page.page)];
     if (!entry) continue;
     page.title = entry.title;
@@ -1357,7 +1354,7 @@ function downloadTextFile(filename, text, type = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
-async function saveSongbookToSongs({ download = true } = {}) {
+async function saveSongbookToSongs({ download = true, requireImages = false } = {}) {
   setPdfImportStatus("Shranjujem pesmarico in pripravljam predvajalnik ...");
   try {
     let added = 0;
@@ -1382,7 +1379,7 @@ async function saveSongbookToSongs({ download = true } = {}) {
     }
     ensureSongbookCopies();
     persist();
-    const payload = await presentationSongbookPayload();
+    const payload = await presentationSongbookPayload({ requireImages });
     if (isAdminView && !IS_GITHUB_PUBLIC) {
       const response = await apiFetch("/api/songbook", {
         method: "POST",
@@ -1414,6 +1411,7 @@ function setView(view) {
   if (!isAdminView && !["songbook", "calendar"].includes(view)) view = "songbook";
   if (view !== "songbook" && $("#songbookOptions")) $("#songbookOptions").open = false;
   if (view !== "songbook" && $("#songbookDialog")?.open) $("#songbookDialog").close();
+  if (view !== "songs" && $("#newSongDialog")?.open) $("#newSongDialog").close();
   $$(".view").forEach((node) => node.classList.toggle("active", node.id === view));
   $$(".nav-item").forEach((node) => node.classList.toggle("active", node.dataset.view === view));
   $("#viewTitle").textContent = viewTitles[view];
@@ -1424,6 +1422,10 @@ function setView(view) {
 
 function applyAccessMode(authState = {}) {
   isAdminView = Boolean(authState.isAdmin);
+  if (!isAdminView) {
+    if ($("#personDialog")?.open) $("#personDialog").close();
+    $("#peopleRows").innerHTML = "";
+  }
   document.body.classList.toggle("admin-mode", isAdminView);
   document.body.classList.toggle("public-mode", !isAdminView);
   if ($("#songbookDialog")?.open) renderSongbookDialog();
@@ -1434,6 +1436,87 @@ function applyAccessMode(authState = {}) {
   if (isAdminView) loadRemoteAdminState().then(() => loadCanvaConnectionStatus());
 }
 
+function isAdventDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))) return false;
+  const selectedDate = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(selectedDate.getTime()) || selectedDate.toISOString().slice(0, 10) !== date) return false;
+  const year = date.slice(0, 4);
+  const start = new Date(`${year}-11-27T12:00:00Z`);
+  start.setUTCDate(27 + (7 - start.getUTCDay()) % 7);
+  return date >= start.toISOString().slice(0, 10) && date < `${year}-12-25`;
+}
+
+function isMassPartEnabled(date, part) {
+  return part !== "Slava" || !isAdventDate(date);
+}
+
+function massPartLabel(entry, part) {
+  return typeof entry?.partLabels?.[part] === "string" ? entry.partLabels[part] : part;
+}
+
+function massSongOptions(part, selectedId) {
+  const renamed = massPartLabel(state.mass, part).trim().toLocaleLowerCase("sl") !== part.toLocaleLowerCase("sl");
+  return `<option value="">Izberi pesem</option>` + state.songs
+    .filter((song) => !song.isCover && (renamed || song.categories?.includes(part) || song.id === selectedId))
+    .slice()
+    .sort((a, b) => (a.printNumber || Infinity) - (b.printNumber || Infinity) || a.title.localeCompare(b.title, "sl"))
+    .map((song) => `<option value="${escapeAttr(song.id)}" ${selectedId === song.id ? "selected" : ""}>${escapeHtml(`${massSongNumber(song)} · ${song.title}`)}</option>`)
+    .join("");
+}
+
+function refreshMassPartSongOptions(part) {
+  $$(`[data-mass-part="${part}"]`).forEach((select) => {
+    if (select.disabled) return;
+    const index = Number(select.dataset.massIndex || 0);
+    const selectedId = index ? state.mass.additionalSelections?.[part]?.[index - 1] || "" : state.mass.selections?.[part] || "";
+    select.innerHTML = massSongOptions(part, selectedId);
+    select.value = selectedId;
+  });
+}
+
+function saveMassPartLabel(part, label, date) {
+  if (!isAdminView || !date || state.mass.date !== date || !MASS_PARTS.includes(part)) return;
+  state.mass.partLabels = { ...(state.mass.partLabels || {}), [part]: label };
+  saveMassToHistory();
+  persist();
+  refreshMassPartSongOptions(part);
+  renderUpcomingMasses();
+  renderCalendar();
+  renderPrint();
+}
+
+function editMassPartHeading(event) {
+  const heading = event.target.closest("h3");
+  const slot = heading?.closest("[data-mass-label-part]");
+  if (!isAdminView || !slot || !state.mass.date || heading.isContentEditable) return;
+  const part = slot.dataset.massLabelPart;
+  const date = state.mass.date;
+  const original = massPartLabel(state.mass, part);
+  heading.contentEditable = "plaintext-only";
+  heading.setAttribute("role", "textbox");
+  heading.setAttribute("aria-label", part);
+  heading.focus();
+  const finish = (cancelled = false) => {
+    heading.removeEventListener("blur", onBlur);
+    heading.removeEventListener("keydown", onKeydown);
+    const label = cancelled ? original : heading.textContent;
+    heading.removeAttribute("contenteditable");
+    heading.removeAttribute("role");
+    heading.removeAttribute("aria-label");
+    heading.textContent = label;
+    if (!cancelled && label !== original) saveMassPartLabel(part, label, date);
+  };
+  const onBlur = () => finish();
+  const onKeydown = (keyEvent) => {
+    if (keyEvent.isComposing || !["Enter", "Escape"].includes(keyEvent.key)) return;
+    keyEvent.preventDefault();
+    finish(keyEvent.key === "Escape");
+    heading.blur();
+  };
+  heading.addEventListener("blur", onBlur);
+  heading.addEventListener("keydown", onKeydown);
+}
+
 function renderMass() {
   ensurePermanentSongNumbers(state);
   $("#massDate").value = state.mass.date || "";
@@ -1441,21 +1524,22 @@ function renderMass() {
   renderMassCalendar();
   renderUpcomingMasses();
   $("#massSlots").innerHTML = MASS_PARTS.map((part) => {
-    const selectedIds = [state.mass.selections[part], ...(state.mass.additionalSelections?.[part] || [])].filter(Boolean);
-    const selectIds = selectedIds.length ? selectedIds : [""];
+    if (!isMassPartEnabled(state.mass.date, part)) {
+      return `<div class="slot slot-disabled" data-mass-label-part="${escapeAttr(part)}"><h3>${escapeHtml(massPartLabel(state.mass, part))}</h3>
+        <select data-mass-part="${escapeAttr(part)}" data-mass-index="0" aria-label="${escapeAttr(part)}" disabled><option value="">V adventu se ne poje</option></select>
+      </div>`;
+    }
+    const selectedIds = [state.mass.selections[part] || "", ...(state.mass.additionalSelections?.[part] || [])];
+    const selectIds = part === "Obhajilo" ? selectedIds : selectedIds.filter(Boolean);
+    while (selectIds.length < (part === "Obhajilo" ? 2 : 1)) selectIds.push("");
     const selects = selectIds.map((selectedId, index) => {
-      const options = state.songs
-        .filter((song) => !song.isCover && (song.categories?.includes(part) || song.id === selectedId))
-        .slice()
-        .sort((a, b) => (a.printNumber || Infinity) - (b.printNumber || Infinity) || a.title.localeCompare(b.title, "sl"))
-        .map((song) => `<option value="${song.id}" ${selectedId === song.id ? "selected" : ""}>${escapeHtml(`${massSongNumber(song)} · ${song.title}`)}</option>`)
-        .join("");
-      return `<select data-mass-part="${escapeHtml(part)}" data-mass-index="${index}"><option value="">Izberi pesem</option>${options}</select>`;
+      const select = `<select data-mass-part="${escapeAttr(part)}" data-mass-index="${index}" aria-label="${escapeAttr(part)}${selectIds.length > 1 ? ` · ${index + 1}. pesem` : ""}">${massSongOptions(part, selectedId)}</select>`;
+      return part === "Obhajilo" ? `<label class="communion-song-field"><span>${index + 1}. pesem</span>${select}</label>` : select;
     }).join("");
 
     return `
-      <div class="slot">
-        <h3>${escapeHtml(part)}</h3>
+      <div class="slot" data-mass-label-part="${escapeAttr(part)}">
+        <h3>${escapeHtml(massPartLabel(state.mass, part))}</h3>
         ${selects}
       </div>
     `;
@@ -1467,8 +1551,9 @@ function hasMassSongs(entry) {
 }
 
 function massProgramRows(entry = state.mass) {
-  return MASS_PARTS.flatMap((part) => [entry?.selections?.[part], ...(entry?.additionalSelections?.[part] || [])]
-    .map((id) => ({ part, song: songById(id) }))).filter(({ song }) => song && !song.isCover);
+  return MASS_PARTS.filter((part) => isMassPartEnabled(entry?.date, part))
+    .flatMap((part) => [entry?.selections?.[part], ...(entry?.additionalSelections?.[part] || [])]
+    .map((id) => ({ part, label: massPartLabel(entry, part), song: songById(id) }))).filter(({ song }) => song && !song.isCover);
 }
 
 function massSongNumber(song) {
@@ -1483,6 +1568,7 @@ function saveMassToHistory() {
     note: state.mass.note || "",
     selections: { ...state.mass.selections },
     additionalSelections: structuredClone(state.mass.additionalSelections || {}),
+    partLabels: { ...(state.mass.partLabels || {}) },
     source: existing?.source || "app",
     importVersion: existing?.importVersion,
     editedByUser: true,
@@ -1527,6 +1613,7 @@ function moveMassMonth(delta) {
 function loadMassFromHistory(date) {
   const entry = state.massHistory.find((item) => item.date === date);
   state.mass.date = date;
+  state.mass.partLabels = { ...(entry?.partLabels || {}) };
   if (entry) {
     state.mass.note = entry.note || "";
     state.mass.selections = { ...entry.selections };
@@ -1542,13 +1629,27 @@ function loadMassFromHistory(date) {
   renderPrint();
 }
 
-function autosaveMassFromForm() {
+function autosaveMassFromForm(event) {
   $("#massProgramStatus").textContent = "";
   state.mass.date = $("#massDate").value;
-  state.mass.note = $("#massNote").value;
-  state.mass.additionalSelections = {};
-  MASS_PARTS.forEach((part) => {
-    const values = $$(`[data-mass-part="${part}"]`).map((select) => select.value).filter(Boolean);
+  if (!event?.target || event.target === $("#massNote")) state.mass.note = $("#massNote").value;
+  state.mass.additionalSelections ||= {};
+  const changedPart = event?.target?.dataset?.massPart;
+  const parts = changedPart ? [changedPart] : event?.target === $("#massNote") ? [] : MASS_PARTS;
+  parts.forEach((part) => {
+    if (changedPart && event.target.dataset.massIndex !== undefined) {
+      const index = Number(event.target.dataset.massIndex);
+      if (index === 0) state.mass.selections[part] = event.target.value;
+      else {
+        const more = [...(state.mass.additionalSelections[part] || [])];
+        more[index - 1] = event.target.value;
+        state.mass.additionalSelections[part] = more;
+      }
+      return;
+    }
+    const selected = isMassPartEnabled(state.mass.date, part)
+      ? $$(`[data-mass-part="${part}"]`).map((select) => select.value) : [];
+    const values = part === "Obhajilo" ? selected : selected.filter(Boolean);
     state.mass.selections[part] = values[0] || "";
     state.mass.additionalSelections[part] = values.slice(1);
   });
@@ -1589,7 +1690,6 @@ function renderSongs() {
     </button>
   `).join("") || `<p class="empty-state">Ni pesmi za izbrani filter.</p>`;
 
-  fillSongForm();
   renderChords();
 }
 
@@ -1630,7 +1730,7 @@ function renderSongbook() {
   ensureSongbookCopies();
   renderSongbookMassPartFilter();
   const songs = getSongbookSongs();
-  if (!songs.some((song) => song.id === selectedSongbookPageId)) {
+  if (!currentSongbookItem()) {
     selectedSongbookPageId = null;
   }
   $("#songbookPages").innerHTML = songs.map((song, index) => `
@@ -1660,20 +1760,43 @@ function renderSongbook() {
 }
 
 function currentSongbookItem() {
-  return currentSongbookPage() || state.songs.find((song) => song.id === selectedSongbookPageId && song.inBook) || null;
+  return currentSongbookPage() || songById(selectedSongbookPageId) || null;
+}
+
+function currentDialogSong() {
+  const item = currentSongbookItem();
+  if (!item) return null;
+  const song = currentSongbookPage() ? ensureSongForSongbookPage(item) : item;
+  return songById(song.libraryCanonicalId) || song;
+}
+
+function openLibrarySong(id) {
+  const selected = songById(id);
+  const song = selected && (songById(selected.libraryCanonicalId) || selected);
+  if (!song) return;
+  selectedSongId = song.id;
+  const pages = new Set(songbookPagesForSong(song));
+  const page = (state.canvaPages || []).filter((item) => pages.has(Number(item.page)))
+    .sort((a, b) => (a.printNumber || Infinity) - (b.printNumber || Infinity))[0];
+  openSongbookDialog(page?.id || song.id, song.id);
 }
 
 function renderSongbookDialog() {
   const item = currentSongbookItem();
   if (!item) return;
-  $("#songbookDialogTitle").textContent = `${numberForSongbookItem(item)} · ${item.title}`;
-  $("#songbookDialogPreview").innerHTML = renderCanvaPage(item);
+  const song = currentDialogSong();
+  const title = item.cover ? item.title : song.title;
+  $("#songbookDialogTitle").textContent = `${numberForSongbookItem(item)} · ${title}`;
+  $("#songbookDialogPreview").innerHTML = currentSongbookPage() || item.canvaImage
+    ? renderCanvaPage(item)
+    : `<article class="library-song-preview"><h2>${escapeHtml(title)}</h2><pre>${escapeHtml(song.lyrics || inlineTextToLyrics(song.inlineChords || song.chords || ""))}</pre></article>`;
   $("#songbookDialog").classList.toggle("readonly", !isAdminView);
 }
 
-function openSongbookDialog(id) {
+function openSongbookDialog(id, returnSongId = null) {
   const dialog = $("#songbookDialog");
   selectedSongbookPageId = id;
+  songDialogReturnSongId = returnSongId;
   if (!currentSongbookItem()) { selectedSongbookPageId = null; return; }
   renderSongbookEditor();
   renderSongbookDialog();
@@ -1689,12 +1812,16 @@ function wireSongbookDialog() {
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener("close", () => {
     const id = selectedSongbookPageId;
+    const returnSongId = songDialogReturnSongId;
     selectedSongbookPageId = null;
+    songDialogReturnSongId = null;
     document.body.classList.remove("songbook-dialog-open");
     $("#songbookDialogPreview").innerHTML = "";
     renderSongbookEditor();
     if ($("#songbook").classList.contains("active")) {
       $$("[data-songbook-open]").find((button) => button.dataset.songbookOpen === id)?.focus({ preventScroll: true });
+    } else if ($("#songs").classList.contains("active")) {
+      $$("[data-song-id]").find((button) => button.dataset.songId === returnSongId)?.focus({ preventScroll: true });
     }
   });
 }
@@ -1712,23 +1839,27 @@ function renderSongbookEditor() {
   if (!page) {
     form.classList.add("empty", "hidden");
     $("#songbookTitle").value = "";
-    $("#songbookPageNumber").value = "";
-    $("#songbookPermanentNumber").value = "";
+    $("#songbookPrintNumber").value = "";
+    $("#deleteSongbookPage").hidden = true;
     $("#songbookLink").value = "";
     $("#songbookMassParts").innerHTML = "";
     return;
   }
 
   selectedSongbookPageId = page.id;
-  const song = state.canvaPages?.length ? ensureSongForSongbookPage(page) : page;
+  const song = currentDialogSong();
   form.classList.remove("empty", "hidden");
-  $("#songbookTitle").value = page.title || song.title;
-  $("#songbookPageNumber").value = page.page || song.page || "";
-  $("#songbookPermanentNumber").value = numberForSongbookItem(page);
+  $("#songbookTitle").value = page.cover ? page.title : song.title;
+  $("#songbookPrintNumber").value = page.printNumber || "";
+  $("#songbookPrintNumber").disabled = !currentSongbookPage();
+  $("#deleteSongbookPage").hidden = !currentSongbookPage();
   $("#songbookLink").value = song.link || "";
+  $("#songbookKnown").checked = Boolean(song.known);
+  $("#songbookLyrics").value = song.lyrics || "";
+  $("#openSongChords").disabled = Boolean(song.isCover || page.cover);
   $("#songbookMassParts").innerHTML = SONGBOOK_CATEGORIES.map((part) => `
     <label class="checkbox">
-      <input type="checkbox" value="${escapeAttr(part)}" ${(page.categories || song.categories || []).includes(part) ? "checked" : ""} />
+      <input type="checkbox" value="${escapeAttr(part)}" ${(song.categories || []).includes(part) ? "checked" : ""} />
       ${escapeHtml(part)}
     </label>
   `).join("");
@@ -1777,15 +1908,55 @@ function matchPreviousCanvaPage(title, hash, pages, hashes, reused) {
     || pages.find(sameTitle);
 }
 
+async function readCanvaPdf(file) {
+  const pdfjs = await import(PDFJS_URL);
+  pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+  return pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+}
+
+async function appendCanvaPdfPage(file, source) {
+  if (!source?.canvaPageId || !Number.isInteger(source.sourcePage) || source.sourcePage < 1 || source.sourcePage > 500) throw new Error("Neveljavna oznaka nove strani.");
+  if ((state.canvaPages || []).some((page) => page.canvaPageId === source.canvaPageId)) return false;
+  const pdf = await readCanvaPdf(file);
+  try {
+    if (pdf.numPages !== 1) throw new Error("Canva ni vrnila samo izbrane nove strani.");
+    const page = await pdf.getPage(1);
+    const extractedTitle = await extractPdfPageTitle(page, source.sourcePage);
+    const catalogEntry = songbookCatalogForTitle(extractedTitle);
+    const viewport = page.getViewport({ scale: 2.3 });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    canvas.width = canvas.height = 1;
+    if (!blob) throw new Error("Slike nove strani ni mogoče pripraviti.");
+    const records = await loadCanvaPageRecords();
+    const pageNumber = Math.max(0, ...(state.canvaPages || []).map((item) => Number(item.canvaDbPage || item.page)), ...records.map((record) => Number(record.page))) + 1;
+    await saveCanvaPageImage(pageNumber, blob);
+    state.canvaPages = [...(state.canvaPages || []), {
+      ...catalogEntry, id: `canva-page-${pageNumber}`, page: pageNumber, canvaDbPage: pageNumber,
+      canvaPageId: source.canvaPageId, canvaSourcePage: source.sourcePage,
+      title: catalogEntry?.title || extractedTitle, categories: [...(catalogEntry?.categories || [])],
+      metadataVersion: SONGBOOK_METADATA_VERSION, copies: 0,
+    }];
+    canvaPageImages.set(pageNumber, URL.createObjectURL(blob));
+    if (!state.canvaPages.at(-1).cover) ensureSongForSongbookPage(state.canvaPages.at(-1));
+    state.canva = { ...(state.canva || {}), lastImported: new Date().toISOString(),
+      needsPresentationExport: true, pendingDirectPublish: true };
+    persist();
+    return true;
+  } finally {
+    await pdf.destroy?.();
+  }
+}
+
 async function importCanvaPdf(file) {
   if (!file) return;
   setPdfImportStatus("Uvažam PDF iz Canve ...");
 
   try {
-    const pdfjs = await import(PDFJS_URL);
-    pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+    const pdf = await readCanvaPdf(file);
 
     const previousRecords = await loadCanvaPageRecords();
     const previousHashes = await getCurrentCanvaPageHashes(previousRecords);
@@ -1828,6 +1999,7 @@ async function importCanvaPdf(file) {
         numberKey: previousPage?.numberKey,
         printNumber: previousPage?.printNumber,
         metadataVersion: SONGBOOK_METADATA_VERSION,
+        settingsEditedByUser: Boolean(previousPage?.settingsEditedByUser),
         copies: Number(previousPage?.copies || 0),
       });
     }
@@ -1837,6 +2009,7 @@ async function importCanvaPdf(file) {
     const removedCount = [...previousHashes.keys()].filter((pageNumber) => !importedPageNumbers.has(pageNumber)).length;
 
     state.canvaPages = importedPages;
+    for (const page of importedPages) if (!page.cover) ensureSongForSongbookPage(page);
     state.canva = {
       ...(state.canva || {}),
       designUrl: CANVA_DESIGN_URL,
@@ -1847,7 +2020,7 @@ async function importCanvaPdf(file) {
     };
     persist();
     await loadCanvaPageImages();
-    renderSongbook();
+    renderAll();
     const removedMessage = removedCount ? `, ${removedCount} odstranjenih` : "";
     setPdfImportStatus(`Uvoz končan: ${addedCount} novih, ${changedCount} spremenjenih, ${unchangedCount} nespremenjenih strani${removedMessage}.`);
     return true;
@@ -1924,22 +2097,74 @@ function renderSongbookPrint() {
 }
 
 function fillSongForm() {
-  const song = songById(selectedSongId);
-  $("#deleteSong").disabled = !song || Boolean(song.isCover);
-  if (!song) {
-    $("#songForm").reset();
-    return;
+  $("#songTitle").value = "";
+  $("#songLink").value = "";
+  $("#songKnown").checked = false;
+  $("#songLyrics").value = "";
+  $("#songCategories").innerHTML = SONGBOOK_CATEGORIES.map((part) => `
+    <label class="checkbox"><input type="checkbox" value="${escapeAttr(part)}" />${escapeHtml(part)}</label>
+  `).join("");
+}
+
+function setSongbookPrintNumber(page, number) {
+  ensurePermanentSongNumbers(state);
+  if (number === page.printNumber) return false;
+  if (number !== 1) throw new Error("Že natisnjene številke ostanejo stalne. Za novo naslovnico lahko vpišeš številko 1.");
+  if (state.canvaPages.some((item) => item !== page && (item.cover || item.printNumber === 1))) {
+    throw new Error("Najprej izbriši staro naslovnico s številko 1, nato novi nastavi številko 1.");
   }
-  $("#songTitle").value = song.title;
-  $("#songCategories").value = song.categories.join(", ");
-  $("#songLink").value = song.link || "";
-  const pages = songbookPagesForSong(song);
-  $("#songPage").value = songDisplayNumber(song);
-  $("#songKnown").checked = Boolean(song.known);
-  $("#songInBook").checked = pages.length > 0;
-  $("#songLyrics").value = song.lyrics || "";
-  for (const selector of ["#songTitle", "#songCategories", "#songLink", "#songKnown", "#songLyrics", "#openSongChords"]) {
-    $(selector).disabled = Boolean(song.isCover);
+  const linked = songbookSongForPage(page);
+  const cover = state.songs.find((song) => song.id === "songbook-cover") || state.songs.find((song) => song.isCover);
+  if (linked && cover && !songHasChords(linked) && !linked.lyrics?.trim()) {
+    linked.libraryCanonicalId = cover.id;
+    linked.isCover = true;
+  }
+  page.cover = true;
+  page.songId = cover?.id;
+  page.settingsEditedByUser = true;
+  state.canva = { ...(state.canva || {}), needsPresentationExport: true };
+  ensurePermanentSongNumbers(state);
+  refreshSongbookMembership();
+  return true;
+}
+
+async function deleteCurrentSongbookPage() {
+  if (!isAdminView) return false;
+  const page = currentSongbookPage();
+  if (!page || !window.confirm(`Izbrišem stran »${page.title}« iz pesmarice? Pesmi in akordi ostanejo shranjeni. Stran v Canvi ne bo izbrisana.`)) return false;
+  const button = $("#deleteSongbookPage");
+  button.disabled = true;
+  try {
+    state.canvaPages = state.canvaPages.filter((item) => item !== page);
+    state.canva = { ...(state.canva || {}), needsPresentationExport: true, pagesInitialized: true,
+      ignoredPageIds: [...new Set([...(state.canva?.ignoredPageIds || []), ...(page.canvaPageId ? [page.canvaPageId] : [])])] };
+    refreshSongbookMembership();
+    persist();
+    $("#songbookDialog").close();
+    renderAll();
+    return await saveSongbookToSongs({ download: false });
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function saveSharedSongSettings(song, settings, selectedPage = null) {
+  const canonical = songById(song.libraryCanonicalId) || song;
+  const linkedPages = new Set(songbookPagesForSong(canonical));
+  const canonicalId = canonical.id;
+  for (const item of state.songs) {
+    if (item.id === canonicalId || item.libraryCanonicalId === canonicalId) {
+      Object.assign(item, settings, { categories: [...settings.categories], settingsEditedByUser: true });
+    }
+  }
+  for (const page of state.canvaPages || []) {
+    if (page === selectedPage || linkedPages.has(Number(page.page))) {
+      page.title = settings.title;
+      page.categories = [...settings.categories];
+      page.metadataVersion = SONGBOOK_METADATA_VERSION;
+      page.settingsEditedByUser = true;
+      if (!page.cover) page.songId = canonicalId;
+    }
   }
 }
 
@@ -1981,6 +2206,32 @@ function renderChords() {
   renderChordPrint();
 }
 
+function splitChordPrintLines(lines) {
+  if (lines.length < 2) return [lines, []];
+  const weights = lines.map((line) => line.length ? 1 : 0.3);
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const nonempty = lines.filter((line) => line.length).length;
+  let left = 0, leftNonempty = 0, verseBoundary;
+  for (let index = 1; index < lines.length; index += 1) {
+    left += weights[index - 1];
+    if (lines[index - 1].length) leftNonempty += 1;
+    const choice = { index, score: Math.abs(total - 2 * left) };
+    if (leftNonempty > 0 && leftNonempty < nonempty && (!lines[index - 1].length || !lines[index].length)
+      && (!verseBoundary || choice.score < verseBoundary.score)) verseBoundary = choice;
+  }
+  const split = verseBoundary ? verseBoundary.index : lines.length;
+  return [lines.slice(0, split), lines.slice(split)];
+}
+
+function renderChordPrintColumns(text) {
+  return splitChordPrintLines(tokenLines(tokenizeInlineChords(text))).map((lines) => {
+    const visible = lines.slice();
+    while (visible.length && !visible[0].length) visible.shift();
+    while (visible.length && !visible[visible.length - 1].length) visible.pop();
+    return `<div class="chord-print-column">${visible.map((line) => renderChordLineRow(line, false)).join("")}</div>`;
+  }).join("");
+}
+
 function renderChordPrint(songsToPrint = getChordSongs()) {
   const print = $("#chordPrint");
   if (!print) return;
@@ -1990,7 +2241,7 @@ function renderChordPrint(songsToPrint = getChordSongs()) {
       <div class="print-song-number">${escapeHtml(songDisplayNumber(song))}</div>
       <div class="chord-print-viewport"><div class="chord-print-content">
         <h1>${escapeHtml(song.title)}</h1>
-        <div class="chord-print-body">${renderInlineChordLines(song.inlineChords || song.chords || song.lyrics || "", Infinity)}</div>
+        <div class="chord-print-body">${renderChordPrintColumns(song.inlineChords || song.chords || song.lyrics || "")}</div>
       </div></div>
     </section>
   `).join("");
@@ -2004,11 +2255,20 @@ function fitChordPrint() {
     for (const page of pages) {
       const viewport = page.querySelector(".chord-print-viewport");
       const content = page.querySelector(".chord-print-content");
-      content.style.setProperty("--chord-print-scale", "1");
+      const body = page.querySelector(".chord-print-body");
+      body.style.fontSize = "12pt";
       if (!viewport.clientWidth || !viewport.clientHeight) return false;
-      const scale = Math.min(1, (viewport.clientWidth - 2) / Math.max(1, content.scrollWidth),
-        (viewport.clientHeight - 2) / Math.max(1, content.scrollHeight));
-      content.style.setProperty("--chord-print-scale", String(scale));
+      content.style.width = `${viewport.clientWidth}px`;
+      const columns = [...body.querySelectorAll(".chord-print-column")];
+      if (columns.length !== 2 || columns.some((column) => !column.clientWidth)) return false;
+      const widthScale = Math.min(1, ...columns.map((column) =>
+        column.clientWidth / Math.max(1, column.scrollWidth)));
+      body.style.fontSize = `${12 * widthScale}pt`;
+      const availableHeight = viewport.clientHeight - body.offsetTop - 2;
+      if (availableHeight <= 0) return false;
+      // Reflow the two columns; do not visually scale an oversized print box.
+      const heightScale = Math.min(1, availableHeight / Math.max(1, body.scrollHeight));
+      body.style.fontSize = `${12 * widthScale * heightScale}pt`;
     }
     return true;
   } finally {
@@ -2427,16 +2687,26 @@ async function importChordTextFile(file) {
 }
 
 function transpose(text, steps) {
+  const source = String(text || "");
+  if (!Number.isInteger(steps) || steps % 12 === 0) return source;
   const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "B", "H"];
-  const flatMap = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "B" };
-  return text.replace(/\b([A-Ha-h](?:#|b)?)(m|maj|min|sus|dim|aug|[0-9])?(?=[/\]\s.,;:!?)-]|$)/g, (match, root, suffix = "") => {
-    const isMinorLetter = root[0] === root[0].toLowerCase();
-    const normalizedRoot = root[0].toUpperCase() + root.slice(1);
-    const normalized = flatMap[normalizedRoot] || normalizedRoot;
-    const index = notes.indexOf(normalized);
-    if (index === -1) return match;
-    const next = notes[(index + steps + notes.length) % notes.length];
-    return `${isMinorLetter ? next.toLowerCase() : next}${suffix}`;
+  const naturals = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 10, H: 11 };
+  const moveNote = root => {
+    const accidental = root.slice(1).toLowerCase();
+    const offset = ["#", "is"].includes(accidental) ? 1 : ["b", "es"].includes(accidental) ? -1 : 0;
+    const pitch = ["bes", "bb"].includes(root.toLowerCase()) ? 10 : naturals[root[0].toUpperCase()] + offset;
+    const next = notes[((pitch + steps) % 12 + 12) % 12];
+    return root[0] === root[0].toLowerCase() ? next.toLowerCase() : next;
+  };
+  // Only explicit chord markers are musical data; all surrounding lyrics stay byte-for-byte intact.
+  return source.replace(/\[([^\]\r\n]*)\]/g, (marker, content) => {
+    const [, leading, value, trailing] = /^(\s*)(.*?)(\s*)$/.exec(content);
+    const parentheses = value.startsWith("(") && value.endsWith(")");
+    const chord = parentheses ? value.slice(1, -1) : value;
+    if (!isChordToken(chord)) return marker;
+    const [, root, suffix, bass] = /^([A-Ha-h](?:#|b|is|es)?)(.*?)(?:\/([A-Ha-h](?:#|b|is|es)?))?$/.exec(chord);
+    const next = `${moveNote(root)}${suffix}${bass ? `/${moveNote(bass)}` : ""}`;
+    return `[${leading}${parentheses ? `(${next})` : next}${trailing}]`;
   });
 }
 
@@ -2460,33 +2730,74 @@ function ageLabel(person) {
   return `${age} let`;
 }
 
+const PERSON_FIELDS = ["name", "birthDate", "parents", "phone", "email", "address", "notes"];
+let personDialogDraft = null;
+
+function personFormField(key) { return $(`#person${key[0].toUpperCase()}${key.slice(1)}`); }
+
+function openPersonDialog(id = null) {
+  if (!isAdminView) return;
+  const person = id ? state.people.find((item) => item.id === id) : null;
+  if (id && !person) return;
+  personDialogDraft = person ? structuredClone(person) : null;
+  $("#personForm").reset();
+  for (const key of PERSON_FIELDS) personFormField(key).value = person?.[key] || "";
+  $("#personDialogTitle").textContent = person ? "Podatki udeleženca" : "Dodaj udeleženca";
+  $("#deletePerson").hidden = !person;
+  $("#personFormStatus").textContent = "";
+  $("#personName").setCustomValidity("");
+  $("#personBirthDate").max = new Date().toLocaleDateString("sv-SE");
+  $("#personDialog").showModal();
+  $("#personName").focus();
+}
+
+function savePersonFromForm(event) {
+  event.preventDefault();
+  if (!isAdminView || !$("#personDialog").open) return;
+  const name = $("#personName");
+  name.setCustomValidity(name.value.trim() ? "" : "Vnesi ime.");
+  if (!$("#personForm").reportValidity()) return;
+  const values = Object.fromEntries(PERSON_FIELDS.map((key) => [key, personFormField(key).value.trim()]));
+  if (personDialogDraft) {
+    const person = state.people.find((item) => item.id === personDialogDraft.id);
+    if (!person) { $("#personFormStatus").textContent = "Udeleženec je bil medtem izbrisan. Zapri okno."; return; }
+    const changed = PERSON_FIELDS.filter((key) => values[key] !== String(personDialogDraft[key] || ""));
+    if (changed.some((key) => String(person[key] || "") !== String(personDialogDraft[key] || "") && String(person[key] || "") !== values[key])) {
+      $("#personFormStatus").textContent = "Isti podatek je bil medtem spremenjen drugje. Zapri in ponovno odpri kartico.";
+      return;
+    }
+    for (const key of changed) person[key] = values[key];
+    if (changed.includes("birthDate")) person.age = "";
+  } else state.people.push({ id: crypto.randomUUID(), age: "", ...values });
+  persist();
+  renderPeople();
+  $("#personDialog").close();
+}
+
 function renderPeople() {
-  const today = new Date().toLocaleDateString("sv-SE");
-  $("#peopleRows").innerHTML = state.people.map((person) => `
-    <tr data-person-id="${person.id}">
-      <td data-label="Ime"><input value="${escapeAttr(person.name)}" data-field="name" aria-label="Ime" /></td>
-      <td data-label="Rojstni datum / starost">
-        <div class="birthdate-age-field">
-          <input type="date" max="${today}" value="${escapeAttr(person.birthDate || "")}" data-field="birthDate" aria-label="Rojstni datum" />
-          <output class="person-age" aria-label="Izračunana starost">${escapeHtml(ageLabel(person))}</output>
-        </div>
-      </td>
-      <td data-label="Starši"><input value="${escapeAttr(person.parents)}" data-field="parents" aria-label="Starši" /></td>
-      <td data-label="Tel. št."><input type="tel" inputmode="tel" autocomplete="tel" value="${escapeAttr(person.phone || "")}" data-field="phone" aria-label="Telefonska številka" /></td>
-      <td data-label="E-pošta"><input type="email" inputmode="email" autocomplete="email" value="${escapeAttr(person.email || "")}" data-field="email" aria-label="E-pošta" /></td>
-      <td data-label="Naslov"><input autocomplete="street-address" value="${escapeAttr(person.address || "")}" data-field="address" aria-label="Naslov" /></td>
-      <td data-label="Posebnosti"><input value="${escapeAttr(person.notes)}" data-field="notes" aria-label="Posebnosti" /></td>
-      <td class="person-delete"><button class="danger" data-delete-person="${person.id}">Izbriši</button></td>
-    </tr>
-  `).join("");
+  if (!isAdminView) { $("#peopleRows").innerHTML = ""; return; }
+  $("#peopleRows").innerHTML = state.people.length ? state.people.map((person) => `
+    <button type="button" class="person-card" data-person-id="${escapeAttr(person.id)}" aria-haspopup="dialog" aria-label="${escapeAttr(`Odpri podatke: ${person.name}`)}">
+      <span class="person-card-heading"><strong>${escapeHtml(person.name)}</strong><span class="person-card-age">${escapeHtml(ageLabel(person))}</span></span>
+      ${[["Starši", person.parents], ["Telefon", person.phone], ["E-pošta", person.email]].filter(([, value]) => value).map(([label, value]) => `<span class="person-card-detail"><span>${label}</span><span>${escapeHtml(value)}</span></span>`).join("")}
+    </button>
+  `).join("") : '<p class="muted">Ni udeležencev.</p>';
+}
+
+function deletePersonFromDialog() {
+  if (!isAdminView || !$("#personDialog").open || !personDialogDraft) return;
+  const person = state.people.find((item) => item.id === personDialogDraft.id);
+  if (!person || !window.confirm(`Izbrišem udeleženca »${person.name}«?`)) return;
+  state.people = state.people.filter((item) => item.id !== person.id);
+  persist();
+  renderPeople();
+  $("#personDialog").close();
 }
 
 function renderPrint() {
   const mode = $("#printMode").value;
   const date = state.mass.date ? new Date(state.mass.date).toLocaleDateString("sl-SI") : "Brez datuma";
-  const selected = MASS_PARTS.flatMap((part) => [state.mass.selections[part], ...(state.mass.additionalSelections?.[part] || [])]
-    .map((songId) => ({ part, song: songById(songId) })))
-    .filter((item) => item.song);
+  const selected = massProgramRows();
 
   if (mode === "plan") {
     $("#printPage").innerHTML = massProgramCopyHtml();
@@ -2498,7 +2809,7 @@ function renderPrint() {
     <p><strong>${escapeHtml(date)}</strong>${state.mass.note ? ` · ${escapeHtml(state.mass.note)}` : ""}</p>
     ${selected.map((item) => `
       <section class="print-song">
-        <p class="muted">${escapeHtml(item.part)}</p>
+        <p class="muted">${escapeHtml(item.label)}</p>
         <h2>${escapeHtml(item.song.title)}</h2>
         ${item.song.page ? `<p>Pesmarica: stran ${escapeHtml(String(item.song.page))}</p>` : ""}
         ${item.song.canvaDesignUrl ? `<p><a href="${escapeAttr(item.song.canvaDesignUrl)}">Canva pesmarica</a></p>` : ""}
@@ -2523,7 +2834,7 @@ function massProgramCopyHtml() {
     <table class="mass-program-table">
       <colgroup><col class="mass-program-part" /><col class="mass-program-number" /><col /></colgroup>
       <thead><tr><th scope="col">Del maše</th><th scope="col">Št.</th><th scope="col">Pesem</th></tr></thead>
-      <tbody>${rows.map(({ part, song }) => `<tr><th scope="row">${escapeHtml(part)}</th><td>${escapeHtml(massSongNumber(song))}</td><td>${escapeHtml(song.title)}</td></tr>`).join("")}</tbody>
+      <tbody>${rows.map(({ label, song }) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(massSongNumber(song))}</td><td>${escapeHtml(song.title)}</td></tr>`).join("")}</tbody>
     </table>
   </div>`;
 }
@@ -2577,11 +2888,8 @@ function calendarEventsFromMassHistory() {
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((entry) => {
-      const songs = MASS_PARTS
-        .flatMap((part) => [entry.selections?.[part], ...(entry.additionalSelections?.[part] || [])]
-          .map((songId) => ({ part, song: songById(songId) })))
-        .filter((item) => item.song)
-        .map((item) => `${item.part}: ${item.song.title}`);
+      const songs = massProgramRows(entry)
+        .map((item) => item.label ? `${item.label}: ${item.song.title}` : item.song.title);
       return {
         date: entry.date,
         title: entry.note ? `Zborcek - ${entry.note}` : "Zborcek - sveta masa",
@@ -2591,6 +2899,7 @@ function calendarEventsFromMassHistory() {
 }
 
 function upcomingMassEvents(now = new Date()) {
+  if (globalThis.ZborcekCalendar) return globalThis.ZborcekCalendar.eventsFromState(state, now).filter((event) => event.key.startsWith("mass:"));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(now).map(({ type, value }) => [type, value]));
@@ -2600,12 +2909,23 @@ function upcomingMassEvents(now = new Date()) {
   return calendarEventsFromMassHistory().filter((event) => dates.has(event.date));
 }
 
+function upcomingCalendarEvents(now = new Date()) {
+  return globalThis.ZborcekCalendar ? globalThis.ZborcekCalendar.eventsFromState(state, now) : upcomingMassEvents(now);
+}
+
+function calendarColorStyle(event) {
+  const color = globalThis.ZborcekCalendar?.colors?.[event.colorId || "6"];
+  if (!color) return "";
+  const background = event.key?.startsWith("mass:") ? "var(--gold)" : color.background;
+  return `--event-background:${background};--event-foreground:${color.foreground}`;
+}
+
 function massEventListHtml(events, editable = false) {
   return events.length ? events.map((event) => {
     const tag = editable ? "button" : "article";
     const attributes = editable ? `type="button" data-upcoming-mass-date="${escapeAttr(event.date)}"` : "";
     return `<${tag} class="calendar-event" ${attributes}>
-      <time datetime="${escapeAttr(event.date)}">${escapeHtml(new Date(`${event.date}T12:00:00`).toLocaleDateString("sl-SI"))}</time>
+      <time datetime="${escapeAttr(event.date)}" style="${calendarColorStyle(event)};background:var(--event-background,var(--gold));color:var(--event-foreground,var(--blue))">${escapeHtml(new Date(`${event.date}T12:00:00`).toLocaleDateString("sl-SI"))}</time>
       <div><strong>${escapeHtml(event.title)}</strong>
       ${event.description ? `<p>${escapeHtml(event.description).replace(/\n/g, "<br>")}</p>` : ""}</div>
     </${tag}>`;
@@ -2621,65 +2941,148 @@ function googleCalendarUrls() {
   if (!GOOGLE_CALENDAR_ID.trim()) return null;
   const id = encodeURIComponent(GOOGLE_CALENDAR_ID.trim());
   return {
-    embed: `https://calendar.google.com/calendar/embed?src=${id}&ctz=${encodeURIComponent(GOOGLE_CALENDAR_TIMEZONE)}`,
     open: `https://calendar.google.com/calendar/render?cid=${id}`,
-    ics: `webcal://calendar.google.com/calendar/ical/${id}/public/basic.ics`,
   };
 }
 
-function googleCalendarDate(date, time) {
-  const value = new Date(`${date}T${time}:00`);
-  if (Number.isNaN(value.getTime())) return null;
-  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+function moveEventMonth(delta) {
+  const [year, month] = visibleEventMonth.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  visibleEventMonth = date.toISOString().slice(0, 7);
+  renderPublicCalendar();
 }
 
-function openGoogleCalendarEvent(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const status = $("#calendarEventStatus");
-  if (!form.reportValidity()) return;
-
-  const title = $("#calendarEventTitle").value.trim();
-  const date = $("#calendarEventDate").value;
-  const start = googleCalendarDate(date, $("#calendarEventStart").value);
-  const end = googleCalendarDate(date, $("#calendarEventEnd").value);
-
-  if (!start || !end || end <= start) {
-    status.textContent = "Končni čas mora biti po začetnem času.";
-    return;
+function renderPublicCalendar() {
+  const grid = $("#publicEventCalendar"), title = $("#publicEventCalendarTitle");
+  if (!grid || !title) return;
+  const focusedDate = document.activeElement?.dataset?.publicEventDate;
+  const [year, month] = visibleEventMonth.split("-").map(Number);
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const offset = (first.getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
+  title.textContent = new Intl.DateTimeFormat("sl-SI", { month: "long", year: "numeric", timeZone: "UTC" }).format(first);
+  const events = new Map();
+  for (const event of upcomingCalendarEvents()) {
+    if (!events.has(event.date)) events.set(event.date, []);
+    events.get(event.date).push(event);
   }
+  const cells = ["pon", "tor", "sre", "čet", "pet", "sob", "ned"].map((day) => `<span class="calendar-weekday">${day}</span>`);
+  for (let index = 0; index < offset; index++) cells.push('<span class="event-calendar-empty" aria-hidden="true"></span>');
+  for (let day = 1; day <= days; day++) {
+    const date = `${visibleEventMonth}-${String(day).padStart(2, "0")}`;
+    const dayEvents = events.get(date) || [];
+    const labels = dayEvents.map((event) => event.title.replace(/^Zbor[cč]ek\s*-\s*/i, ""));
+    const mixedColors = new Set(dayEvents.map((event) => event.colorId || "6")).size > 1;
+    const colorStyle = mixedColors ? "--event-background:#ffffff;--event-foreground:var(--blue)" : dayEvents.length ? calendarColorStyle(dayEvents[0]) : "";
+    const dateLabel = new Intl.DateTimeFormat("sl-SI", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+    const tag = dayEvents.length ? "button" : "div";
+    cells.push(`<${tag} class="event-calendar-day${dayEvents.length ? " has-event" : ""}${date === today ? " is-today" : ""}" style="${colorStyle}" ${dayEvents.length ? `type="button" data-public-event-date="${date}" aria-haspopup="dialog"` : ""} aria-label="${escapeAttr(`${dateLabel}${labels.length ? `: ${labels.join("; ")}` : ""}`)}" ${date === today ? 'aria-current="date"' : ""}>
+      <time datetime="${date}">${day}</time>${labels.map((label, index) => `<strong${mixedColors ? ` class="event-calendar-label" style="${calendarColorStyle(dayEvents[index])}"` : ""}>${escapeHtml(label)}</strong>`).join("")}${labels.length > 1 ? `<span class="event-calendar-more" aria-hidden="true">+${labels.length - 1}</span>` : ""}
+    </${tag}>`);
+  }
+  for (let index = (offset + days) % 7; index > 0 && index < 7; index++) cells.push('<span class="event-calendar-empty" aria-hidden="true"></span>');
+  grid.innerHTML = cells.join("");
+  const dialog = $("#publicEventDialog");
+  if (dialog?.open) {
+    const dayEvents = events.get(dialog.dataset.date);
+    if (!dayEvents?.length) dialog.close();
+    else fillPublicCalendarEvent(dayEvents);
+  } else if (focusedDate) {
+    $$("[data-public-event-date]").find((button) => button.dataset.publicEventDate === focusedDate)?.focus({ preventScroll: true });
+  }
+}
 
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: title,
-    dates: `${start}/${end}`,
-    details: $("#calendarEventDescription").value.trim(),
-    location: $("#calendarEventLocation").value.trim(),
-    ctz: GOOGLE_CALENDAR_TIMEZONE,
-    src: GOOGLE_CALENDAR_ID.trim(),
-  });
-  window.open(`https://calendar.google.com/calendar/render?${params}`, "_blank", "noopener");
-  status.textContent = "Javni dogodek je pripravljen. V Google Koledarju klikni Shrani.";
+function openPublicCalendarEvent(date) {
+  const events = upcomingCalendarEvents().filter((item) => item.date === date);
+  if (!events.length) return;
+  fillPublicCalendarEvent(events);
+  $("#publicEventDate").textContent = new Date(`${date}T12:00:00`).toLocaleDateString("sl-SI", { dateStyle: "full" });
+  $("#publicEventDialog").dataset.date = date;
+  $("#publicEventDialog").showModal();
+}
+
+function fillPublicCalendarEvent(events) {
+  $("#publicEventTitle").textContent = events.length === 1 ? events[0].title : "Dogodki";
+  $("#publicEventDescription").textContent = events.map((event) => events.length === 1
+    ? event.description || "" : `${event.title}\n${event.description || ""}`).join("\n\n");
+}
+
+function calendarEventDraft() {
+  return { title: $("#newCalendarTitle").value.trim(), description: $("#newCalendarDescription").value.trim(),
+    date: $("#newCalendarDate").value, repeat: $("#newCalendarRepeat").value, until: $("#newCalendarUntil").value,
+    weekdays: $$("#newCalendarWeekdays input:checked").map((input) => Number(input.value)),
+    colorId: $("#newCalendarColors input:checked")?.value || "6" };
+}
+
+function refreshCalendarDraft() {
+  const weekly = $("#newCalendarRepeat").value === "weekly";
+  $("#newCalendarWeekly").hidden = !weekly;
+  $("#newCalendarUntil").required = weekly;
+  $("#newCalendarUntil").min = $("#newCalendarDate").value;
+  $("#newCalendarStatus").textContent = "";
+  try {
+    const dates = globalThis.ZborcekCalendarDraft.datesFromDraft(calendarEventDraft());
+    const count = dates.length, ending = count % 100;
+    $("#newCalendarCount").textContent = `${count} ${ending === 1 ? "dogodek" : ending === 2 ? "dogodka" : [3, 4].includes(ending) ? "dogodki" : "dogodkov"}`;
+  } catch { $("#newCalendarCount").textContent = ""; }
+}
+
+function calendarDraftDateChanged() {
+  const date = $("#newCalendarDate").value;
+  if (!date) return;
+  const value = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(value.getTime())) { refreshCalendarDraft(); return; }
+  const day = (value.getUTCDay() + 6) % 7;
+  $$("#newCalendarWeekdays input").forEach((input) => { input.checked = Number(input.value) === day; });
+  if (!$("#newCalendarUntil").value || $("#newCalendarUntil").value < date) {
+    value.setUTCMonth(value.getUTCMonth() + 3);
+    $("#newCalendarUntil").value = value.toISOString().slice(0, 10);
+  }
+  refreshCalendarDraft();
+}
+
+function openNewCalendarEvent() {
+  if (!isAdminView) return;
+  $("#newCalendarForm").reset();
+  $("#newCalendarColors").innerHTML = '<legend>Barva dogodka</legend>' + Object.entries(globalThis.ZborcekCalendar.colors).map(([id, color]) => `
+    <label title="${escapeAttr(color.name)}"><input type="radio" name="newCalendarColor" value="${id}" aria-label="${escapeAttr(color.name)}" ${id === "6" ? "checked" : ""} />
+    <span aria-hidden="true" style="--swatch-color:${color.background};--swatch-ink:${color.foreground}"></span></label>`).join("");
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
+  $("#newCalendarDate").min = today;
+  $("#newCalendarDate").value = today;
+  $("#newCalendarRepeat").value = "none";
+  calendarDraftDateChanged();
+  $("#newCalendarDialog").showModal();
+  $("#newCalendarTitle").focus();
+}
+
+function saveNewCalendarEvent(event) {
+  event.preventDefault();
+  if (!isAdminView || !$("#newCalendarDialog").open || !$("#newCalendarForm").reportValidity()) return;
+  try {
+    const draft = calendarEventDraft();
+    const dates = globalThis.ZborcekCalendarDraft.datesFromDraft(draft);
+    const seriesId = crypto.randomUUID();
+    const entries = dates.map((date) => ({ id: `${seriesId}-${date}`, date, title: draft.title, description: draft.description, colorId: draft.colorId,
+      ...(draft.repeat === "weekly" ? { seriesId } : {}) }));
+    state.calendarEvents = [...(Array.isArray(state.calendarEvents) ? state.calendarEvents : []), ...entries];
+    persist();
+    visibleEventMonth = dates[0].slice(0, 7);
+    $("#newCalendarDialog").close();
+    renderCalendar();
+  } catch (error) { $("#newCalendarStatus").textContent = error.message; }
 }
 
 function renderCalendar() {
+  renderPublicCalendar();
   const urls = googleCalendarUrls();
-  const frame = $("#googleCalendarFrame");
-  const fallback = $("#calendarFallback");
-  const setup = $("#calendarSetup");
   const openLink = $("#googleCalendarOpen");
-  const icsLink = $("#googleCalendarIcs");
-  const events = upcomingMassEvents();
+  const events = upcomingCalendarEvents();
 
-  if (frame && fallback && setup && openLink && icsLink) {
-    frame.hidden = !urls;
-    fallback.hidden = Boolean(urls);
-    setup.hidden = Boolean(urls);
+  if (openLink) {
     openLink.classList.toggle("disabled", !urls);
-    icsLink.classList.toggle("disabled", !urls);
     openLink.href = urls?.open || "#";
-    icsLink.href = urls?.ics || "#";
-    if (urls) frame.src = urls.embed;
   }
 
   const count = $("#calendarEventCount");
@@ -2690,53 +3093,6 @@ function renderCalendar() {
   list.innerHTML = massEventListHtml(events);
 }
 
-function escapeIcsText(value) {
-  return String(value || "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
-}
-
-function dateToIcsDay(value) {
-  return String(value || "").replace(/-/g, "");
-}
-
-function downloadLocalCalendarIcs() {
-  const events = calendarEventsFromMassHistory();
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Zborcek Sv Trojice//Dogodki//SL",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-  ];
-
-  for (const event of events) {
-    const day = dateToIcsDay(event.date);
-    const next = new Date(`${event.date}T12:00:00`);
-    next.setDate(next.getDate() + 1);
-    lines.push(
-      "BEGIN:VEVENT",
-      `UID:zborcek-${day}@sv-trojice`,
-      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}`,
-      `DTSTART;VALUE=DATE:${day}`,
-      `DTEND;VALUE=DATE:${dateToIcsDay(next.toISOString().slice(0, 10))}`,
-      `SUMMARY:${escapeIcsText(event.title)}`,
-      `DESCRIPTION:${escapeIcsText(event.description)}`,
-      "END:VEVENT"
-    );
-  }
-
-  lines.push("END:VCALENDAR");
-  const blob = new Blob([`${lines.join("\r\n")}\r\n`], { type: "text/calendar;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "zborcek-sv-trojice-dogodki.ics";
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -2780,6 +3136,51 @@ function printInMode(modeClass, orientation) {
   else printMedia.addListener?.(handlePrintMedia);
   cleanupTimer = setTimeout(cleanup, 120000);
   requestAnimationFrame(() => window.print());
+}
+
+function wireCalendarMonthSwipe() {
+  const grid = $("#publicEventCalendar");
+  if (!grid) return;
+  let gesture = null;
+  let suppressClickUntil = 0;
+  grid.addEventListener("touchstart", (event) => {
+    gesture = window.innerWidth <= 860 && event.touches.length === 1
+      ? { x: event.touches[0].clientX, y: event.touches[0].clientY,
+        id: event.touches[0].identifier, time: performance.now(), horizontal: false } : null;
+  }, { passive: true });
+  grid.addEventListener("touchmove", (event) => {
+    if (!gesture) return;
+    if (event.touches.length !== 1 || event.touches[0].identifier !== gesture.id) { gesture = null; return; }
+    const dx = event.touches[0].clientX - gesture.x;
+    const dy = event.touches[0].clientY - gesture.y;
+    if (!gesture.horizontal) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { gesture = null; return; }
+      if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+      gesture.horizontal = true;
+    }
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
+  grid.addEventListener("touchend", (event) => {
+    const current = gesture;
+    gesture = null;
+    if (!current || window.innerWidth > 860 || event.touches.length || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    if (touch.identifier !== current.id) return;
+    const dx = touch.clientX - current.x, dy = touch.clientY - current.y;
+    const distance = Math.max(36, Math.min(56, grid.clientWidth * 0.12));
+    const speed = Math.abs(dx) / Math.max(1, performance.now() - current.time);
+    if (!current.horizontal || Math.abs(dx) < 20 || Math.abs(dx) < Math.abs(dy) * 1.3
+      || (Math.abs(dx) < distance && speed < 0.35)) return;
+    if (event.cancelable) event.preventDefault();
+    suppressClickUntil = Date.now() + 450;
+    moveEventMonth(dx < 0 ? 1 : -1);
+  }, { passive: false });
+  grid.addEventListener("touchcancel", () => { gesture = null; }, { passive: true });
+  grid.addEventListener("click", (event) => {
+    if (Date.now() >= suppressClickUntil) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
 }
 
 function wireMobileTabSwipe() {
@@ -2939,6 +3340,7 @@ function wireEvents() {
     if (songbookOptions.open && !songbookOptions.contains(event.target)) songbookOptions.open = false;
   });
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+  wireCalendarMonthSwipe();
   wireMobileTabSwipe();
 
   $("#loginButton").addEventListener("click", () => {
@@ -2977,6 +3379,7 @@ function wireEvents() {
     else {
       state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
       state.mass.additionalSelections = {};
+      state.mass.partLabels = {};
       state.mass.note = "";
       state.mass.date = $("#massDate").value;
       visibleMassMonth = state.mass.date.slice(0, 7);
@@ -2987,8 +3390,9 @@ function wireEvents() {
   });
   $("#massNote").addEventListener("input", autosaveMassFromForm);
   $("#massSlots").addEventListener("change", (event) => {
-    if (event.target.matches("[data-mass-part]")) autosaveMassFromForm();
+    if (event.target.matches("[data-mass-part]")) autosaveMassFromForm(event);
   });
+  $("#massSlots").addEventListener("dblclick", editMassPartHeading);
   $("#prevMassMonth").addEventListener("click", () => moveMassMonth(-1));
   $("#nextMassMonth").addEventListener("click", () => moveMassMonth(1));
   $("#massCalendar").addEventListener("click", (event) => {
@@ -3011,18 +3415,38 @@ function wireEvents() {
     if (!item) return;
     selectedSongId = item.dataset.songId;
     renderSongs();
+    openLibrarySong(selectedSongId);
   });
 
-  const addNewSong = () => {
+  $("#newSong").addEventListener("click", () => {
+    if (!isAdminView) return;
+    fillSongForm();
+    $("#newSongDialog").showModal();
+    document.body.classList.add("new-song-dialog-open");
+    $("#songTitle").focus();
+  });
+  $("#closeNewSongDialog").addEventListener("click", () => $("#newSongDialog").close());
+  $("#newSongDialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  $("#newSongDialog").addEventListener("close", () => {
+    document.body.classList.remove("new-song-dialog-open");
+    $("#newSong").focus({ preventScroll: true });
+  });
+  $("#songForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!isAdminView || !$("#newSongDialog").open) return;
+    const title = $("#songTitle").value.trim();
+    if (!title) { $("#songTitle").focus(); return; }
     const song = {
       id: crypto.randomUUID(),
-      title: "Nova pesem",
-      categories: [],
-      link: "",
+      title,
+      categories: $$("#songCategories input:checked").map((input) => input.value),
+      link: $("#songLink").value.trim(),
       page: null,
-      known: false,
+      known: $("#songKnown").checked,
       inBook: false,
-      lyrics: "",
+      lyrics: $("#songLyrics").value,
       chords: "",
       inlineChords: "",
     };
@@ -3031,47 +3455,17 @@ function wireEvents() {
     $("#songSearch").value = "";
     $("#songStatusFilter").value = "";
     persist();
+    $("#newSongDialog").close();
     renderAll();
-    $("#songTitle").focus();
-    $("#songTitle").select();
-  };
-  $("#newSong").addEventListener("click", addNewSong);
-  $("#addSongFromForm").addEventListener("click", addNewSong);
-
-  $("#songForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const song = songById(selectedSongId);
-    if (!song || song.isCover) return;
-    song.title = $("#songTitle").value.trim() || "Brez naslova";
-    song.categories = $("#songCategories").value.split(",").map((part) => part.trim()).filter(Boolean);
-    song.link = $("#songLink").value.trim();
-    song.known = $("#songKnown").checked;
-    song.lyrics = $("#songLyrics").value;
-    const linkedPages = new Set(songbookPagesForSong(song));
-    for (const page of state.canvaPages || []) {
-      if (linkedPages.has(Number(page.page))) {
-        page.title = song.title;
-        page.categories = [...song.categories];
-      }
-    }
-    persist();
-    renderAll();
-  });
-
-  $("#deleteSong").addEventListener("click", () => {
-    if (!selectedSongId || songById(selectedSongId)?.isCover) return;
-    state.songs = state.songs.filter((song) => song.id !== selectedSongId);
-    for (const part of MASS_PARTS) {
-      if (state.mass.selections[part] === selectedSongId) state.mass.selections[part] = "";
-    }
-    selectedSongId = state.songs[0]?.id || null;
-    persist();
-    renderAll();
+    openLibrarySong(song.id);
   });
 
   $("#chordSearch").addEventListener("input", renderChords);
   $("#openSongChords").addEventListener("click", () => {
-    selectedChordSongId = selectedSongId;
+    const song = currentDialogSong();
+    if (!isAdminView || !song || song.isCover) return;
+    selectedChordSongId = song.id;
+    $("#songbookDialog").close();
     activeChordInputIndex = null;
     chordAddMode = false;
     renderChords();
@@ -3241,26 +3635,27 @@ function wireEvents() {
     }
   });
 
-  $("#addPerson").addEventListener("click", () => {
-    state.people.push({ id: crypto.randomUUID(), name: "", birthDate: "", age: "", parents: "", phone: "", email: "", address: "", notes: "" });
-    persist();
-    renderPeople();
+  $("#addPerson").addEventListener("click", () => openPersonDialog());
+  $("#personForm").addEventListener("submit", savePersonFromForm);
+  $("#personName").addEventListener("input", () => $("#personName").setCustomValidity(""));
+  $("#cancelPerson").addEventListener("click", () => $("#personDialog").close());
+  $("#closePersonDialog").addEventListener("click", () => $("#personDialog").close());
+  $("#personDialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
   });
-  $("#peopleRows").addEventListener("input", (event) => {
-    const row = event.target.closest("[data-person-id]");
-    if (!row) return;
-    const person = state.people.find((item) => item.id === row.dataset.personId);
-    if (!person) return;
-    person[event.target.dataset.field] = event.target.value;
-    if (event.target.dataset.field === "birthDate") row.querySelector(".person-age").textContent = ageLabel(person);
-    persist();
+  $("#personDialog").addEventListener("close", () => {
+    const id = personDialogDraft?.id;
+    personDialogDraft = null;
+    $("#personForm").reset();
+    $("#personName").setCustomValidity("");
+    $("#deletePerson").hidden = true;
+    ($$("[data-person-id]").find((card) => card.dataset.personId === id) || $("#addPerson")).focus({ preventScroll: true });
   });
+  $("#deletePerson").addEventListener("click", deletePersonFromDialog);
   $("#peopleRows").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-delete-person]");
-    if (!button) return;
-    state.people = state.people.filter((person) => person.id !== button.dataset.deletePerson);
-    persist();
-    renderPeople();
+    if (!isAdminView) return;
+    const card = event.target.closest("[data-person-id]");
+    if (card) openPersonDialog(card.dataset.personId);
   });
 
   $("#printMode").addEventListener("change", renderPrint);
@@ -3269,9 +3664,34 @@ function wireEvents() {
     else if ($("#printMode").value === "guitar") printChordSongs(massProgramRows().map(({ song }) => song));
     else window.print();
   });
-  $("#calendarEventDate").value = new Date().toLocaleDateString("sv-SE");
-  $("#calendarEventForm").addEventListener("submit", openGoogleCalendarEvent);
-  $("#downloadLocalIcs").addEventListener("click", downloadLocalCalendarIcs);
+  $("#prevEventMonth")?.addEventListener("click", () => moveEventMonth(-1));
+  $("#nextEventMonth")?.addEventListener("click", () => moveEventMonth(1));
+  $("#todayEventMonth")?.addEventListener("click", () => {
+    visibleEventMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit" }).format(new Date());
+    renderPublicCalendar();
+  });
+  $("#publicEventCalendar")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-public-event-date]");
+    if (button) openPublicCalendarEvent(button.dataset.publicEventDate);
+  });
+  $("#closePublicEvent")?.addEventListener("click", () => $("#publicEventDialog").close());
+  $("#publicEventDialog")?.addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+  $("#publicEventDialog")?.addEventListener("close", () => {
+    const date = $("#publicEventDialog").dataset.date;
+    $$("[data-public-event-date]").find((button) => button.dataset.publicEventDate === date)?.focus({ preventScroll: true });
+  });
+  $("#addCalendarEvent")?.addEventListener("click", openNewCalendarEvent);
+  $("#newCalendarForm")?.addEventListener("submit", saveNewCalendarEvent);
+  $("#newCalendarForm")?.addEventListener("input", refreshCalendarDraft);
+  $("#newCalendarForm")?.addEventListener("change", refreshCalendarDraft);
+  $("#newCalendarDate")?.addEventListener("change", calendarDraftDateChanged);
+  $("#closeNewCalendarEvent")?.addEventListener("click", () => $("#newCalendarDialog").close());
+  $("#cancelNewCalendarEvent")?.addEventListener("click", () => $("#newCalendarDialog").close());
+  $("#newCalendarDialog")?.addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+  $("#newCalendarDialog")?.addEventListener("close", () => {
+    $("#newCalendarForm").reset();
+    $("#addCalendarEvent").focus({ preventScroll: true });
+  });
 
   $("#songbookSearch").addEventListener("input", renderSongbook);
   $("#songbookMassPart").addEventListener("change", renderSongbook);
@@ -3313,23 +3733,30 @@ function wireEvents() {
     if (!isAdminView) return;
     const page = currentSongbookItem();
     if (!page) return;
-    const song = state.canvaPages?.length ? ensureSongForSongbookPage(page) : page;
-    page.title = $("#songbookTitle").value.trim() || `Canva stran ${page.page}`;
-    if (!page.cover) song.title = page.title;
-    page.page = Number($("#songbookPageNumber").value || page.page);
-    song.canvaPage = page.page;
-    song.link = $("#songbookLink").value.trim();
-    page.categories = $$("#songbookMassParts input:checked").map((input) => input.value);
-    page.metadataVersion = SONGBOOK_METADATA_VERSION;
-    if (!page.cover) {
-      song.categories = [...page.categories];
-      for (const otherPage of state.canvaPages || []) {
-        if (otherPage.songId === song.id) otherPage.categories = [...page.categories];
+    const song = currentDialogSong();
+    const title = $("#songbookTitle").value.trim();
+    if (!title) { $("#songbookTitle").focus(); return; }
+    let numberChanged = false;
+    if (currentSongbookPage()) {
+      try {
+        numberChanged = setSongbookPrintNumber(page, Number($("#songbookPrintNumber").value || page.printNumber));
+      } catch (error) {
+        window.alert(error.message);
+        return;
       }
     }
+    saveSharedSongSettings(song, {
+      title,
+      categories: $$("#songbookMassParts input:checked").map((input) => input.value),
+      link: $("#songbookLink").value.trim(),
+      known: $("#songbookKnown").checked,
+      lyrics: $("#songbookLyrics").value,
+    }, currentSongbookPage());
     persist();
     renderAll();
+    if (numberChanged) void saveSongbookToSongs({ download: false });
   });
+  $("#deleteSongbookPage").addEventListener("click", () => deleteCurrentSongbookPage());
   $("#printSongbook").addEventListener("click", () => {
     renderSongbookPrint();
     printInMode("printing-songbook", "landscape");
@@ -3343,7 +3770,6 @@ function wireEvents() {
   });
   $("#saveSongbookToSongs").addEventListener("click", () => saveSongbookToSongs({ download: false }));
   $("#updatePresentation").addEventListener("click", () => updatePresentationProgram());
-  $("#downloadSongbookPageForUsb").addEventListener("click", () => downloadCurrentSongbookPageForUsb());
 
   $("#exportJson").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
@@ -3383,7 +3809,88 @@ function renderAll() {
   renderPrint();
 }
 
-document.addEventListener("zborcek-auth-state", (event) => applyAccessMode(event.detail));
+function liveEditingDialog() {
+  return Boolean($("#songbookDialog")?.open || $("#chordEditorDialog")?.open || document.activeElement?.isContentEditable);
+}
+
+function liveInputFocused() {
+  return Boolean(document.activeElement?.matches?.("input, textarea, select, [contenteditable]:not([contenteditable=false])") || document.querySelector("dialog[open]"));
+}
+
+function renderLiveChanges() {
+  if (liveInputFocused()) {
+    liveRenderPending = true;
+    // Keep the active field/caret intact, but update the other visible Mass fields.
+    const active = document.activeElement;
+    if ($("#massNote") && active !== $("#massNote")) $("#massNote").value = state.mass.note || "";
+    $$("#massSlots [data-mass-part]").forEach((select) => {
+      if (select === active) return;
+      const part = select.dataset.massPart, index = Number(select.dataset.massIndex || 0);
+      const selectedId = index ? state.mass.additionalSelections?.[part]?.[index - 1] || "" : state.mass.selections?.[part] || "";
+      if (!select.disabled) select.innerHTML = massSongOptions(part, selectedId);
+      select.value = selectedId;
+    });
+    $$("#massSlots [data-mass-label-part]").forEach((slot) => {
+      const heading = slot.querySelector("h3");
+      if (heading && heading !== active) heading.textContent = massPartLabel(state.mass, slot.dataset.massLabelPart);
+    });
+    renderMassCalendar(); renderUpcomingMasses(); renderPublicCalendar(); renderPrint();
+    return;
+  }
+  liveRenderPending = false;
+  renderAll();
+}
+
+function applyLiveState(remote, isPublic) {
+  const S = globalThis.ZborcekStateSync;
+  const before = S.snapshot(state);
+  const oldPages = JSON.stringify(state.canvaPages);
+  const localMass = state.mass;
+  suppressRemoteSave = true;
+  try {
+    if (isPublic) applyRemotePublicState(remote);
+    else state = { ...remote, mass: localMass };
+    state.mass = localMass;
+    const entry = state.massHistory?.find((item) => item.date === localMass.date);
+    state.mass.note = entry?.note || "";
+    state.mass.selections = { ...(entry?.selections || Object.fromEntries(MASS_PARTS.map((part) => [part, ""]))) };
+    state.mass.additionalSelections = structuredClone(entry?.additionalSelections || {});
+    state.mass.partLabels = { ...(entry?.partLabels || {}) };
+    persist();
+  } finally { suppressRemoteSave = false; }
+  if (!S.same(before, S.snapshot(state))) renderLiveChanges();
+  if (oldPages !== JSON.stringify(state.canvaPages)) {
+    void Promise.all([loadRemoteSongbook(), loadCanvaPageImages()]).then(renderLiveChanges).catch(console.warn);
+  }
+}
+
+function setLiveStatus(name) {
+  const node = $("#liveSyncStatus");
+  if (!node) return;
+  node.dataset.state = name;
+  node.textContent = ({ pending: "Shranjujem …", saving: "Shranjujem …", saved: "Shranjeno", offline: "Brez povezave", conflict: "Spor pri shranjevanju" })[name] || "";
+  node.title = name === "offline" ? "Lokalni vnosi so ohranjeni. Shranjevanje se ponovi ob povezavi." : "";
+}
+
+document.addEventListener("zborcek-auth-state", (event) => {
+  applyAccessMode(event.detail);
+  if (!isAdminView) { clearTimeout(remoteSaveTimer); void liveSync?.refresh(true).catch(console.warn); }
+});
+if (globalThis.createZborcekLiveSync) {
+  liveSync = globalThis.createZborcekLiveSync({ read: () => state, apply: applyLiveState,
+    admin: () => isAdminView && !IS_GITHUB_PUBLIC, editing: liveEditingDialog, request: apiFetch, status: setLiveStatus,
+    conflict: (value) => { $("#resolveLiveConflict").hidden = !value; if (!value) $("#liveConflictDialog").close(); },
+  });
+  $("#resolveLiveConflict").addEventListener("click", () => $("#liveConflictDialog").showModal());
+  $("#closeLiveConflict").addEventListener("click", () => $("#liveConflictDialog").close());
+  [["#keepLiveLocal", true], ["#keepLiveRemote", false]].forEach(([id, local]) => $(id).addEventListener("click", async () => {
+    $("#liveConflictDialog").close();
+    try { await liveSync.resolve(local); } catch (error) { console.warn(error); }
+  }));
+  const finishRender = () => setTimeout(() => { if (liveRenderPending && !liveInputFocused()) renderLiveChanges(); }, 0);
+  document.addEventListener("focusout", finishRender);
+  document.addEventListener("close", finishRender, true);
+}
 wireEvents();
 applyAccessMode(window.zborcekAuth?.state || {});
 document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
@@ -3394,4 +3901,10 @@ document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
   await loadCanvaPageImages()
     .catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
   renderAll();
+  liveSync?.start();
+  let lastCalendarDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
+  window.setInterval(() => {
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
+    if (today !== lastCalendarDay) { lastCalendarDay = today; renderCalendar(); }
+  }, 60000);
 }());
