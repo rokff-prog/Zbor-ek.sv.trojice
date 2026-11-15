@@ -1239,6 +1239,41 @@ body.chord-dialog-open { overflow: hidden; }
 .person-dialog label { min-width: 0; }
 .person-dialog input, .person-dialog textarea { width: 100%; min-width: 0; }
 .person-dialog [hidden] { display: none; }
+.person-birth-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.person-birth-field legend {
+  margin-bottom: 6px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 900;
+}
+.person-birth-inputs {
+  display: grid;
+  grid-template-columns: 74px minmax(132px, 1fr) 94px auto;
+  gap: 8px;
+  align-items: end;
+}
+.person-birth-inputs label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.person-birth-inputs input,
+.person-birth-inputs select {
+  width: 100%;
+  min-width: 0;
+}
+.person-birth-inputs .person-age {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+}
 .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
 .person-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--blue); font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .person-card:hover { border-color: var(--green); }
@@ -2617,6 +2652,13 @@ button.calendar-event:focus-visible { border-color: var(--green); }
 }
 
 @media (max-width: 430px) {
+  .person-birth-inputs {
+    grid-template-columns: 62px minmax(112px, 1fr) 82px;
+  }
+  .person-birth-inputs .person-age {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
   .topbar .eyebrow:not(.app-version) {
     display: none;
   }

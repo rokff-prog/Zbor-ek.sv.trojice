@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261026-chat-calendar" />
+    <link rel="stylesheet" href="styles.css?v=20261115-birthdays" />
     <script>
       if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
         let updateReloaded = false;
@@ -54,7 +54,7 @@
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow app-version">Različica 2026.10.26-2</p>
+          <p class="eyebrow app-version">Različica 2026.11.15-1</p>
           <h2 id="viewTitle">Načrt svete maše</h2>
         </div>
         <div class="top-actions admin-only">
@@ -312,6 +312,8 @@
       <section id="people" class="view">
         <div class="toolbar">
           <button id="addPerson" class="primary">Dodaj udeleženca</button>
+          <button id="birthdayNotifications" class="ghost" type="button">Vklopi rojstnodnevna obvestila</button>
+          <span id="birthdayNotificationStatus" class="muted" role="status"></span>
           <span class="muted">Osebni podatki naj ostanejo zasebni in zaščiteni.</span>
         </div>
         <div id="peopleRows" class="people-grid"></div>
@@ -324,7 +326,24 @@
             <button id="closePersonDialog" class="dialog-close" type="button" title="Zapri" aria-label="Zapri podatke udeleženca">&times;</button>
           </header>
           <label>Ime <input id="personName" name="name" autocomplete="name" required /></label>
-          <label>Rojstni datum <input id="personBirthDate" name="birthDate" type="date" /></label>
+          <fieldset class="person-birth-field">
+            <legend>Rojstni datum</legend>
+            <div class="person-birth-inputs">
+              <label>Dan <input id="personBirthDay" inputmode="numeric" autocomplete="bday-day" maxlength="2" placeholder="DD" /></label>
+              <label>Mesec
+                <select id="personBirthMonth" autocomplete="bday-month">
+                  <option value="">Mesec</option>
+                  <option value="01">Januar</option><option value="02">Februar</option><option value="03">Marec</option>
+                  <option value="04">April</option><option value="05">Maj</option><option value="06">Junij</option>
+                  <option value="07">Julij</option><option value="08">Avgust</option><option value="09">September</option>
+                  <option value="10">Oktober</option><option value="11">November</option><option value="12">December</option>
+                </select>
+              </label>
+              <label>Leto <input id="personBirthYear" inputmode="numeric" autocomplete="bday-year" maxlength="4" placeholder="LLLL" /></label>
+              <output id="personBirthAge" class="person-age" aria-live="polite">Starost: ni podatka</output>
+            </div>
+            <input id="personBirthDate" name="birthDate" type="hidden" />
+          </fieldset>
           <label>Starši <input id="personParents" name="parents" /></label>
           <label>Tel. št. <input id="personPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" /></label>
           <label>E-pošta <input id="personEmail" name="email" type="email" autocomplete="email" /></label>
@@ -490,7 +509,7 @@
     <script src="vendor/rrule-2.8.1.min.js"></script>
     <script src="calendar-draft.js?v=20261025-calendar-repeat"></script>
     <script src="calendar-events.js?v=20261026-chat-calendar"></script>
-    <script src="app.js?v=20261026-chord-transpose"></script>
+    <script src="app.js?v=20261115-birthdays"></script>
     <script src="install-app.js?v=20261025-chrome-install"></script>
   </body>
 </html>

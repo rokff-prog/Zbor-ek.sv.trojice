@@ -6,8 +6,9 @@ const events = {};
 let matched, fetched;
 const context = vm.createContext({
   URL,
-  self: { location: { origin: "https://choir.test" }, addEventListener: (name, action) => { events[name] = action; } },
-  caches: { open: async () => ({ match: async (request) => { matched = request.url; return undefined; }, put: async () => {} }) },
+  Response, Intl, Date,
+  self: { location: { origin: "https://choir.test" }, registration: { scope: "https://choir.test/", showNotification: async () => {} }, addEventListener: (name, action) => { events[name] = action; } },
+  caches: { open: async () => ({ match: async (request) => { matched = request.url || request; return undefined; }, put: async () => {} }), delete: async () => true, keys: async () => [] },
   fetch: async (request) => { fetched = request.url; return { ok: true, clone: () => ({}) }; },
 });
 vm.runInContext(fs.readFileSync(path.join(__dirname, "../sw.js"), "utf8"), context);

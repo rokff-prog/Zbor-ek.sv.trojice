@@ -31,7 +31,7 @@ const node = (id) => {
     removeAttribute(name) { delete this.attributes[name]; if (name === "contenteditable") this.contentEditable = "inherit"; },
     get isContentEditable() { return this.contentEditable === "plaintext-only"; },
     reset() {
-      for (const field of ["Name", "BirthDate", "Parents", "Phone", "Email", "Address", "Notes"]) node(`#person${field}`).value = "";
+      for (const field of ["Name", "BirthDate", "BirthDay", "BirthMonth", "BirthYear", "Parents", "Phone", "Email", "Address", "Notes"]) node(`#person${field}`).value = "";
     },
     reportValidity() { return Boolean(node("#personName").value && !node("#personName").validationMessage); },
   };
@@ -89,9 +89,10 @@ for (const dismiss of [
 node("#addPerson").dispatch("click");
 node("#personDialog").dispatch("click", { target: node("#personForm") });
 assert.equal(node("#personDialog").open, true, "Clicks within the form are not backdrop clicks");
-const fields = { Name: '  Ana <test>  ', BirthDate: '2015-03-14', Parents: 'Parent', Phone: '+386 40 123 456',
+const fields = { Name: '  Ana <test>  ', Parents: 'Parent', Phone: '+386 40 123 456',
   Email: 'ana@example.test', Address: 'Test street 1', Notes: 'Some notes' };
 for (const [field, value] of Object.entries(fields)) node(`#person${field}`).value = value;
+node('#personBirthDay').value = '14'; node('#personBirthMonth').value = '03'; node('#personBirthYear').value = '2015';
 node("#personForm").dispatch("submit");
 assert.equal(run("state.people.length"), 1);
 assert.equal(writes, 1);
@@ -100,6 +101,8 @@ for (const [field, value] of Object.entries(fields)) {
   const key = field[0].toLowerCase() + field.slice(1);
   assert.equal(run(`state.people[0].${key}`), value.trim());
 }
+assert.equal(run('state.people[0].birthDate'), '2015-03-14');
+assert.match(node('#personBirthAge').textContent, /^Starost: \d+ let$/);
 assert.match(node("#peopleRows").innerHTML, /Ana &lt;test&gt;/);
 node("#personForm").dispatch("submit");
 assert.equal(run("state.people.length"), 1, "A closed form cannot create duplicate rows");
@@ -112,7 +115,8 @@ assert.equal(node('#personName').value, 'Ana <test>'); assert.equal(node('#perso
 const beforeDraft = writes;
 node('#personPhone').value = 'Discard'; node('#cancelPerson').dispatch('click');
 assert.equal(run('state.people[0].phone'), fields.Phone); assert.equal(writes, beforeDraft);
-openCard(); node('#personPhone').value = 'Updated phone'; node('#personBirthDate').value = '2016-05-12';
+openCard(); node('#personPhone').value = 'Updated phone';
+node('#personBirthDay').value = '12'; node('#personBirthMonth').value = '05'; node('#personBirthYear').value = '2016';
 run("state.people[0].address = 'Remote address'");
 node('#personForm').dispatch('submit');
 assert.equal(run('state.people.length'), 1); assert.equal(run('state.people[0].id'), personId);

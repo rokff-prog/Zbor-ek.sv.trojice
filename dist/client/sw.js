@@ -1,8 +1,10 @@
-const CACHE_NAME = "zborcek-app-v41";
+const CACHE_NAME = "zborcek-app-v42";
+const BIRTHDAY_CACHE = "zborcek-private-birthdays-v1";
+const BIRTHDAY_DATA_URL = new URL("./__birthday-data", self.registration.scope).href;
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20261026-chat-calendar",
+  "./styles.css?v=20261115-birthdays",
   "./auth-config.js?v=20260915-public",
   "./auth.js?v=20261016-remember",
   "./song-catalog.js?v=20261024-miklavz",
@@ -14,7 +16,7 @@ const APP_SHELL = [
   "./vendor/rrule-2.8.1.min.js",
   "./calendar-draft.js?v=20261025-calendar-repeat",
   "./calendar-events.js?v=20261026-chat-calendar",
-  "./app.js?v=20261026-chord-transpose",
+  "./app.js?v=20261115-birthdays",
   "./install-app.js?v=20261025-chrome-install",
   "./zborcek-predstavitev-pesmarica.js?v=20260915-public",
   "./manifest.webmanifest",
@@ -30,7 +32,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME && key !== BIRTHDAY_CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -62,4 +64,64 @@ self.addEventListener("fetch", (event) => {
       return response;
     }))
   );
+});
+
+async function readBirthdayData() {
+  const cache = await caches.open(BIRTHDAY_CACHE);
+  const response = await cache.match(BIRTHDAY_DATA_URL);
+  return response ? response.json() : { people: [], lastNotified: "" };
+}
+
+async function writeBirthdayData(data) {
+  const cache = await caches.open(BIRTHDAY_CACHE);
+  await cache.put(BIRTHDAY_DATA_URL, new Response(JSON.stringify(data), {
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  }));
+}
+
+function ljubljanaToday() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+async function checkBirthdays() {
+  const data = await readBirthdayData();
+  const today = ljubljanaToday();
+  if (data.lastNotified === today) return;
+  const monthDay = today.slice(5);
+  const names = (data.people || []).filter((person) => String(person.birthDate || "").slice(5) === monthDay)
+    .map((person) => String(person.name || "").trim()).filter(Boolean);
+  if (!names.length) return;
+  await self.registration.showNotification(names.length === 1 ? "Rojstni dan v zborčku" : "Rojstni dnevi v zborčku", {
+    body: names.length === 1 ? `Danes praznuje ${names[0]}.` : `Danes praznujejo: ${names.join(", ")}.`,
+    icon: "./assets/icons/zborcek-192.png",
+    badge: "./assets/icons/zborcek-192.png",
+    tag: `zborcek-birthday-${today}`,
+    data: { url: "./admin?view=people" },
+  });
+  await writeBirthdayData({ ...data, lastNotified: today });
+}
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SYNC_BIRTHDAYS") {
+    event.waitUntil(readBirthdayData().then((previous) => writeBirthdayData({ people: event.data.people || [], lastNotified: previous.lastNotified || "" })).then(checkBirthdays));
+  }
+  if (event.data?.type === "CLEAR_BIRTHDAYS") event.waitUntil(caches.delete(BIRTHDAY_CACHE));
+});
+
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "zborcek-birthday-check") event.waitUntil(checkBirthdays());
+});
+
+self.addEventListener("sync", (event) => {
+  if (event.tag === "zborcek-birthday-check") event.waitUntil(checkBirthdays());
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+    const existing = windows.find((client) => client.url.startsWith(self.registration.scope));
+    if (!existing) return clients.openWindow(event.notification.data?.url || "./admin");
+    existing.postMessage({ type: "OPEN_BIRTHDAYS" });
+    return existing.focus();
+  }));
 });

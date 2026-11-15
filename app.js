@@ -13,6 +13,7 @@ const MASS_PARTS = [
 
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
 const CHORD_BACKUP_KEY = "zborcek-sv-trojice-chords-v1";
+const BIRTHDAY_NOTIFICATIONS_KEY = "zborcek-birthday-notifications-v1";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
 const CANVA_DB = "zborcek-canva-pages";
 const CANVA_STORE = "pages";
@@ -2730,6 +2731,109 @@ function ageLabel(person) {
   return `${age} let`;
 }
 
+function birthDateParts(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  return match ? { year: match[1], month: match[2], day: match[3] } : { year: "", month: "", day: "" };
+}
+
+function updatePersonBirthAge(value = $("#personBirthDate").value) {
+  const age = calculateAge(value);
+  $("#personBirthAge").textContent = `Starost: ${age === null ? "ni podatka" : ageLabel({ birthDate: value })}`;
+}
+
+function syncPersonBirthDate(validate = false) {
+  const dayField = $("#personBirthDay"), monthField = $("#personBirthMonth"), yearField = $("#personBirthYear");
+  const day = dayField.value.trim(), month = monthField.value, year = yearField.value.trim();
+  [dayField, monthField, yearField].forEach((field) => field.setCustomValidity(""));
+  if (!day && !month && !year) {
+    $("#personBirthDate").value = "";
+    updatePersonBirthAge("");
+    return true;
+  }
+  if (!/^\d{1,2}$/.test(day) || !month || !/^\d{4}$/.test(year)) {
+    if (validate) yearField.setCustomValidity("Vnesi celoten rojstni datum: dan, mesec in štirimestno leto.");
+    $("#personBirthDate").value = "";
+    updatePersonBirthAge("");
+    return false;
+  }
+  const iso = `${year}-${month}-${day.padStart(2, "0")}`;
+  const parsed = new Date(`${iso}T12:00:00`);
+  const valid = !Number.isNaN(parsed.getTime()) && parsed.getFullYear() === Number(year)
+    && parsed.getMonth() + 1 === Number(month) && parsed.getDate() === Number(day)
+    && iso <= new Date().toLocaleDateString("sv-SE");
+  if (!valid) {
+    if (validate) dayField.setCustomValidity("Vnesi veljaven rojstni datum, ki ni v prihodnosti.");
+    $("#personBirthDate").value = "";
+    updatePersonBirthAge("");
+    return false;
+  }
+  $("#personBirthDate").value = iso;
+  updatePersonBirthAge(iso);
+  return true;
+}
+
+function setPersonBirthFields(value) {
+  const parts = birthDateParts(value);
+  $("#personBirthDay").value = parts.day ? String(Number(parts.day)) : "";
+  $("#personBirthMonth").value = parts.month;
+  $("#personBirthYear").value = parts.year;
+  $("#personBirthDate").value = value || "";
+  updatePersonBirthAge(value || "");
+}
+
+function birthdayNotificationsEnabled() {
+  try { return localStorage.getItem(BIRTHDAY_NOTIFICATIONS_KEY) === "1"; } catch { return false; }
+}
+
+async function postBirthdayDataToWorker(clear = false) {
+  if (!("serviceWorker" in navigator)) return false;
+  const registration = await navigator.serviceWorker.ready;
+  const worker = registration.active || registration.waiting || registration.installing;
+  if (!worker) return false;
+  worker.postMessage(clear ? { type: "CLEAR_BIRTHDAYS" } : {
+    type: "SYNC_BIRTHDAYS",
+    people: state.people.filter((person) => /^\d{4}-\d{2}-\d{2}$/.test(person.birthDate || ""))
+      .map((person) => ({ id: person.id, name: person.name, birthDate: person.birthDate })),
+  });
+  if (!clear && "periodicSync" in registration) {
+    try { await registration.periodicSync.register("zborcek-birthday-check", { minInterval: 24 * 60 * 60 * 1000 }); } catch {}
+  }
+  return true;
+}
+
+function renderBirthdayNotificationStatus(message = "") {
+  const button = $("#birthdayNotifications"), status = $("#birthdayNotificationStatus");
+  if (!button || !status) return;
+  const supported = "Notification" in window && "serviceWorker" in navigator;
+  const enabled = supported && Notification.permission === "granted" && birthdayNotificationsEnabled();
+  button.disabled = !supported;
+  button.textContent = enabled ? "Izklopi rojstnodnevna obvestila" : "Vklopi rojstnodnevna obvestila";
+  status.textContent = message || (!supported ? "Ta telefon ne podpira obvestil." : Notification.permission === "denied"
+    ? "Obvestila so blokirana v nastavitvah telefona." : enabled ? "Obvestila so vklopljena." : "");
+}
+
+async function toggleBirthdayNotifications() {
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) return renderBirthdayNotificationStatus();
+  if (birthdayNotificationsEnabled() && Notification.permission === "granted") {
+    try { localStorage.removeItem(BIRTHDAY_NOTIFICATIONS_KEY); } catch {}
+    await postBirthdayDataToWorker(true).catch(() => false);
+    renderBirthdayNotificationStatus("Obvestila so izklopljena.");
+    return;
+  }
+  const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+  if (permission !== "granted") return renderBirthdayNotificationStatus();
+  try { localStorage.setItem(BIRTHDAY_NOTIFICATIONS_KEY, "1"); } catch {}
+  await postBirthdayDataToWorker(false);
+  renderBirthdayNotificationStatus("Obvestila so vklopljena. Telefon bo preverjal rojstne dneve tudi v ozadju, kadar to podpira.");
+}
+
+function syncBirthdayNotifications() {
+  renderBirthdayNotificationStatus();
+  if (isAdminView && birthdayNotificationsEnabled() && globalThis.Notification?.permission === "granted") {
+    void postBirthdayDataToWorker(false).catch(() => renderBirthdayNotificationStatus("Obvestil trenutno ni mogoče osvežiti."));
+  }
+}
+
 const PERSON_FIELDS = ["name", "birthDate", "parents", "phone", "email", "address", "notes"];
 let personDialogDraft = null;
 
@@ -2742,11 +2846,11 @@ function openPersonDialog(id = null) {
   personDialogDraft = person ? structuredClone(person) : null;
   $("#personForm").reset();
   for (const key of PERSON_FIELDS) personFormField(key).value = person?.[key] || "";
+  setPersonBirthFields(person?.birthDate || "");
   $("#personDialogTitle").textContent = person ? "Podatki udeleženca" : "Dodaj udeleženca";
   $("#deletePerson").hidden = !person;
   $("#personFormStatus").textContent = "";
   $("#personName").setCustomValidity("");
-  $("#personBirthDate").max = new Date().toLocaleDateString("sv-SE");
   $("#personDialog").showModal();
   $("#personName").focus();
 }
@@ -2756,7 +2860,7 @@ function savePersonFromForm(event) {
   if (!isAdminView || !$("#personDialog").open) return;
   const name = $("#personName");
   name.setCustomValidity(name.value.trim() ? "" : "Vnesi ime.");
-  if (!$("#personForm").reportValidity()) return;
+  if (!syncPersonBirthDate(true) || !$("#personForm").reportValidity()) return;
   const values = Object.fromEntries(PERSON_FIELDS.map((key) => [key, personFormField(key).value.trim()]));
   if (personDialogDraft) {
     const person = state.people.find((item) => item.id === personDialogDraft.id);
@@ -2771,6 +2875,7 @@ function savePersonFromForm(event) {
   } else state.people.push({ id: crypto.randomUUID(), age: "", ...values });
   persist();
   renderPeople();
+  syncBirthdayNotifications();
   $("#personDialog").close();
 }
 
@@ -2791,6 +2896,7 @@ function deletePersonFromDialog() {
   state.people = state.people.filter((item) => item.id !== person.id);
   persist();
   renderPeople();
+  syncBirthdayNotifications();
   $("#personDialog").close();
 }
 
@@ -3636,8 +3742,13 @@ function wireEvents() {
   });
 
   $("#addPerson").addEventListener("click", () => openPersonDialog());
+  $("#birthdayNotifications").addEventListener("click", toggleBirthdayNotifications);
   $("#personForm").addEventListener("submit", savePersonFromForm);
   $("#personName").addEventListener("input", () => $("#personName").setCustomValidity(""));
+  ["#personBirthDay", "#personBirthMonth", "#personBirthYear"].forEach((id) => {
+    $(id).addEventListener("input", () => syncPersonBirthDate(false));
+    $(id).addEventListener("change", () => syncPersonBirthDate(false));
+  });
   $("#cancelPerson").addEventListener("click", () => $("#personDialog").close());
   $("#closePersonDialog").addEventListener("click", () => $("#personDialog").close());
   $("#personDialog").addEventListener("click", (event) => {
@@ -3859,6 +3970,7 @@ function applyLiveState(remote, isPublic) {
     persist();
   } finally { suppressRemoteSave = false; }
   if (!S.same(before, S.snapshot(state))) renderLiveChanges();
+  if (!isPublic) syncBirthdayNotifications();
   if (oldPages !== JSON.stringify(state.canvaPages)) {
     void Promise.all([loadRemoteSongbook(), loadCanvaPageImages()]).then(renderLiveChanges).catch(console.warn);
   }
@@ -3874,7 +3986,11 @@ function setLiveStatus(name) {
 
 document.addEventListener("zborcek-auth-state", (event) => {
   applyAccessMode(event.detail);
-  if (!isAdminView) { clearTimeout(remoteSaveTimer); void liveSync?.refresh(true).catch(console.warn); }
+  if (!isAdminView) {
+    clearTimeout(remoteSaveTimer);
+    void liveSync?.refresh(true).catch(console.warn);
+    void postBirthdayDataToWorker(true).catch(() => false);
+  } else syncBirthdayNotifications();
 });
 if (globalThis.createZborcekLiveSync) {
   liveSync = globalThis.createZborcekLiveSync({ read: () => state, apply: applyLiveState,
@@ -3892,6 +4008,11 @@ if (globalThis.createZborcekLiveSync) {
   document.addEventListener("close", finishRender, true);
 }
 wireEvents();
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "OPEN_BIRTHDAYS" && isAdminView) setView("people");
+  });
+}
 applyAccessMode(window.zborcekAuth?.state || {});
 document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
 (async function bootstrap() {
@@ -3901,10 +4022,11 @@ document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
   await loadCanvaPageImages()
     .catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
   renderAll();
+  syncBirthdayNotifications();
   liveSync?.start();
   let lastCalendarDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
   window.setInterval(() => {
     const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
-    if (today !== lastCalendarDay) { lastCalendarDay = today; renderCalendar(); }
+    if (today !== lastCalendarDay) { lastCalendarDay = today; renderCalendar(); syncBirthdayNotifications(); }
   }, 60000);
 }());
