@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261115-birthdays" />
+    <link rel="stylesheet" href="styles.css?v=20261115-fast-start" />
     <script>
       if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
         let updateReloaded = false;
@@ -27,7 +27,7 @@
       }
     </script>
   </head>
-  <body>
+  <body class="public-mode">
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-mark">ZT</span>
@@ -37,8 +37,8 @@
         </div>
       </div>
       <nav class="nav" aria-label="Glavna navigacija">
-        <button class="nav-item active admin-only" data-view="mass">Maša</button>
-        <button class="nav-item" data-view="songbook">Pesmarica</button>
+        <button class="nav-item admin-only" data-view="mass">Maša</button>
+        <button class="nav-item active" data-view="songbook">Pesmarica</button>
         <button class="nav-item admin-only" data-view="songs">Pesmi</button>
         <button class="nav-item admin-only" data-view="chords">Akordi</button>
         <button class="nav-item" data-view="calendar">Koledar</button>
@@ -54,8 +54,8 @@
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow app-version">Različica 2026.11.15-4</p>
-          <h2 id="viewTitle">Načrt svete maše</h2>
+          <p class="eyebrow app-version">Različica 2026.11.15-5</p>
+          <h2 id="viewTitle">Pesmarica</h2>
         </div>
         <div class="top-actions admin-only">
           <button id="exportJson" class="icon-button" title="Izvozi podatke">⇩</button>
@@ -74,7 +74,7 @@
         </div>
       </header>
 
-      <section id="mass" class="view active">
+      <section id="mass" class="view">
         <div class="hero-panel">
           <div class="hero-copy">
             <span class="paint-label">Otroški pevski zbor</span>
@@ -165,7 +165,7 @@
         </dialog>
       </section>
 
-      <section id="songbook" class="view">
+      <section id="songbook" class="view active">
         <div class="toolbar songbook-toolbar no-print">
           <input id="songbookSearch" class="search" type="search" placeholder="Poišči pesem v pesmarici" aria-label="Poišči pesem v pesmarici" />
           <label>
@@ -488,7 +488,7 @@
     </main>
 
     <script src="auth-config.js?v=20260915-public"></script>
-    <script src="auth.js?v=20261115-poldi4-restore"></script>
+    <script src="auth.js?v=20261115-fast-start"></script>
     <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
     <script src="song-catalog.js?v=20261024-miklavz"></script>
     <script src="song-numbering.js?v=20261025-distinct-arrangements"></script>
@@ -512,7 +512,7 @@
     <script src="vendor/rrule-2.8.1.min.js"></script>
     <script src="calendar-draft.js?v=20261025-calendar-repeat"></script>
     <script src="calendar-events.js?v=20261026-chat-calendar"></script>
-    <script src="app.js?v=20261115-calendar-edit"></script>
+    <script src="app.js?v=20261115-fast-start"></script>
     <script src="install-app.js?v=20261115-poldi4-restore"></script>
   </body>
 </html>

@@ -7,9 +7,11 @@
   let stateRevision = 0;
   let pendingSessionCheck = null;
   let signingOut = false;
+  let sessionReady = Promise.resolve();
 
   const api = {
     state: { isAdmin: localHost && !forcePublic, username: localHost && !forcePublic ? "lokalni skrbnik" : "" },
+    get ready() { return sessionReady; },
     async signIn(username, password) {
       if (githubPublic) {
         location.assign(`${adminOrigin}/?admin=1`);
@@ -77,7 +79,7 @@
         pendingSessionCheck = null;
       }
     }
-    refreshSession();
+    sessionReady = refreshSession();
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") refreshSession();
     });

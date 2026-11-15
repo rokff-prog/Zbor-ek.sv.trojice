@@ -693,6 +693,7 @@ let editingCalendarKey = null;
 let visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : new Date().toISOString().slice(0, 7);
 let visibleEventMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit" }).format(new Date());
 let isAdminView = Boolean(window.zborcekAuth?.state?.isAdmin);
+let accessModeApplied = false;
 migrateState();
 backupChords();
 
@@ -1423,6 +1424,7 @@ function setView(view) {
 }
 
 function applyAccessMode(authState = {}) {
+  const wasAdmin = isAdminView;
   isAdminView = Boolean(authState.isAdmin);
   if (!isAdminView) {
     if ($("#personDialog")?.open) $("#personDialog").close();
@@ -1435,6 +1437,8 @@ function applyAccessMode(authState = {}) {
   if (identity) identity.textContent = authState.email || "Skrbnik";
   const activeView = $(".view.active")?.id;
   if (!isAdminView && !["songbook", "calendar"].includes(activeView)) setView("songbook");
+  if (isAdminView && (!accessModeApplied || !wasAdmin) && activeView === "songbook") setView("mass");
+  accessModeApplied = true;
   if (isAdminView) loadRemoteAdminState().then(() => loadCanvaConnectionStatus());
 }
 
@@ -4127,13 +4131,21 @@ if ("serviceWorker" in navigator) {
 }
 applyAccessMode(window.zborcekAuth?.state || {});
 document.body.classList.toggle("github-public", IS_GITHUB_PUBLIC);
+renderAll();
 (async function bootstrap() {
   syncCanvaSongbook({ silent: true });
-  if (isAdminView && !IS_GITHUB_PUBLIC) await Promise.all([loadRemoteAdminState(), loadRemoteSongbook()]);
-  else await Promise.all([loadRemotePublicState(), loadRemoteSongbook()]);
-  await loadCanvaPageImages()
-    .catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
+  await window.zborcekAuth?.ready;
+  if (isAdminView && !IS_GITHUB_PUBLIC) await loadRemoteAdminState();
+  else await loadRemotePublicState();
   renderAll();
+  void loadRemoteSongbook().then(() => {
+    renderSongbook();
+    renderPrint();
+    return loadCanvaPageImages();
+  }).then(() => {
+    renderSongbook();
+    renderPrint();
+  }).catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
   syncBirthdayNotifications();
   liveSync?.start();
   let lastCalendarDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
