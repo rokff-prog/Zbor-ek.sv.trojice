@@ -9,7 +9,7 @@
   const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSamsung = /Android/i.test(navigator.userAgent) && /SamsungBrowser\//i.test(navigator.userAgent);
-  const publicInstallUrl = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site/?source=app";
+  const publicInstallUrl = "https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site/?source=app";
 
   function showManualInstructions() {
     const chromeActions = document.querySelector("#installChromeActions");
