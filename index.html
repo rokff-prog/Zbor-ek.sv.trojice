@@ -54,7 +54,7 @@
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow app-version">Različica 2026.11.15-3</p>
+          <p class="eyebrow app-version">Različica 2026.11.15-4</p>
           <h2 id="viewTitle">Načrt svete maše</h2>
         </div>
         <div class="top-actions admin-only">
@@ -266,6 +266,7 @@
             </header>
             <p id="publicEventDate" class="section-label"></p>
             <p id="publicEventDescription" class="public-event-description"></p>
+            <div id="publicEventEditActions" class="calendar-event-edit-actions admin-only"></div>
           </article>
         </dialog>
         <dialog id="newCalendarDialog" class="import-dialog calendar-event-dialog no-print" aria-labelledby="newCalendarDialogTitle">
@@ -277,8 +278,9 @@
             <label>Naslov dogodka<input id="newCalendarTitle" type="text" maxlength="160" required /></label>
             <label>Datum<input id="newCalendarDate" type="date" required /></label>
             <label>Opis<textarea id="newCalendarDescription" rows="3" maxlength="3000"></textarea></label>
+            <p id="calendarMassHelp" class="muted" hidden>Seznam pesmi tega dogodka je povezan z načrtom maše.</p>
             <fieldset id="newCalendarColors" class="calendar-color-choices"><legend>Barva dogodka</legend></fieldset>
-            <label>Ponavljanje<select id="newCalendarRepeat"><option value="none">Se ne ponavlja</option><option value="weekly">Vsak teden</option></select></label>
+            <label id="newCalendarRepeatLabel">Ponavljanje<select id="newCalendarRepeat"><option value="none">Se ne ponavlja</option><option value="weekly">Vsak teden</option></select></label>
             <div id="newCalendarWeekly" class="calendar-repeat-controls" hidden>
               <fieldset id="newCalendarWeekdays" class="calendar-weekday-choices">
                 <legend>Dnevi</legend>
@@ -295,8 +297,9 @@
             <output id="newCalendarCount" class="muted" aria-live="polite"></output>
             <p id="newCalendarStatus" class="calendar-event-status" role="status"></p>
             <div class="form-actions">
+              <button id="editMassSongs" class="ghost" type="button" hidden>Uredi pesmi pri maši</button>
               <button id="cancelNewCalendarEvent" class="ghost" type="button">Prekliči</button>
-              <button class="primary" type="submit">Shrani</button>
+              <button id="saveCalendarEvent" class="primary" type="submit">Shrani</button>
             </div>
           </form>
         </dialog>
@@ -509,7 +512,7 @@
     <script src="vendor/rrule-2.8.1.min.js"></script>
     <script src="calendar-draft.js?v=20261025-calendar-repeat"></script>
     <script src="calendar-events.js?v=20261026-chat-calendar"></script>
-    <script src="app.js?v=20261115-poldi4-restore"></script>
+    <script src="app.js?v=20261115-calendar-edit"></script>
     <script src="install-app.js?v=20261115-poldi4-restore"></script>
   </body>
 </html>

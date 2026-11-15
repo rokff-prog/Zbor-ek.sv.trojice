@@ -689,6 +689,7 @@ let selectedChordSongId = null;
 let currentChordTokens = [];
 let activeChordInputIndex = null;
 let chordAddMode = false;
+let editingCalendarKey = null;
 let visibleMassMonth = state.mass?.date ? state.mass.date.slice(0, 7) : new Date().toISOString().slice(0, 7);
 let visibleEventMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit" }).format(new Date());
 let isAdminView = Boolean(window.zborcekAuth?.state?.isAdmin);
@@ -3112,6 +3113,28 @@ function fillPublicCalendarEvent(events) {
   $("#publicEventTitle").textContent = events.length === 1 ? events[0].title : "Dogodki";
   $("#publicEventDescription").textContent = events.map((event) => events.length === 1
     ? event.description || "" : `${event.title}\n${event.description || ""}`).join("\n\n");
+  const actions = $("#publicEventEditActions");
+  if (actions) actions.innerHTML = isAdminView ? events.map((event) => `
+    <button class="ghost" type="button" data-edit-calendar-key="${escapeAttr(event.key)}">
+      ${events.length === 1 ? "Uredi dogodek" : `Uredi: ${escapeHtml(event.title.replace(/^Zbor[cč]ek\s*-\s*/i, ""))}`}
+    </button>`).join("") : "";
+}
+
+function renderCalendarColors(selected = "6") {
+  $("#newCalendarColors").innerHTML = '<legend>Barva dogodka</legend>' + Object.entries(globalThis.ZborcekCalendar.colors).map(([id, color]) => `
+    <label title="${escapeAttr(color.name)}"><input type="radio" name="newCalendarColor" value="${id}" aria-label="${escapeAttr(color.name)}" ${id === String(selected) ? "checked" : ""} />
+    <span aria-hidden="true" style="--swatch-color:${color.background};--swatch-ink:${color.foreground}"></span></label>`).join("");
+}
+
+function resetCalendarEditor() {
+  $("#newCalendarForm").reset();
+  $("#newCalendarDescription").readOnly = false;
+  $("#newCalendarColors").hidden = false;
+  $("#newCalendarRepeatLabel").hidden = false;
+  $("#newCalendarWeekly").hidden = true;
+  $("#calendarMassHelp").hidden = true;
+  $("#editMassSongs").hidden = true;
+  $("#newCalendarStatus").textContent = "";
 }
 
 function calendarEventDraft() {
@@ -3122,6 +3145,13 @@ function calendarEventDraft() {
 }
 
 function refreshCalendarDraft() {
+  if (editingCalendarKey) {
+    $("#newCalendarWeekly").hidden = true;
+    $("#newCalendarUntil").required = false;
+    $("#newCalendarCount").textContent = "";
+    $("#newCalendarStatus").textContent = "";
+    return;
+  }
   const weekly = $("#newCalendarRepeat").value === "weekly";
   $("#newCalendarWeekly").hidden = !weekly;
   $("#newCalendarUntil").required = weekly;
@@ -3150,10 +3180,11 @@ function calendarDraftDateChanged() {
 
 function openNewCalendarEvent() {
   if (!isAdminView) return;
-  $("#newCalendarForm").reset();
-  $("#newCalendarColors").innerHTML = '<legend>Barva dogodka</legend>' + Object.entries(globalThis.ZborcekCalendar.colors).map(([id, color]) => `
-    <label title="${escapeAttr(color.name)}"><input type="radio" name="newCalendarColor" value="${id}" aria-label="${escapeAttr(color.name)}" ${id === "6" ? "checked" : ""} />
-    <span aria-hidden="true" style="--swatch-color:${color.background};--swatch-ink:${color.foreground}"></span></label>`).join("");
+  editingCalendarKey = null;
+  resetCalendarEditor();
+  renderCalendarColors();
+  $("#newCalendarDialogTitle").textContent = "Dodaj v koledar";
+  $("#saveCalendarEvent").textContent = "Shrani";
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
   $("#newCalendarDate").min = today;
   $("#newCalendarDate").value = today;
@@ -3163,10 +3194,73 @@ function openNewCalendarEvent() {
   $("#newCalendarTitle").focus();
 }
 
-function saveNewCalendarEvent(event) {
+function openEditCalendarEvent(key) {
+  if (!isAdminView) return;
+  const calendarEvent = upcomingCalendarEvents().find((event) => event.key === key);
+  if (!calendarEvent) return;
+  editingCalendarKey = key;
+  resetCalendarEditor();
+  const isMass = key.startsWith("mass:");
+  $("#newCalendarDialogTitle").textContent = "Uredi dogodek";
+  $("#saveCalendarEvent").textContent = "Shrani spremembe";
+  $("#newCalendarTitle").value = calendarEvent.title.replace(/^Zbor[cč]ek\s*-\s*/i, "");
+  $("#newCalendarDate").value = calendarEvent.date;
+  $("#newCalendarDescription").value = calendarEvent.description || "";
+  $("#newCalendarRepeatLabel").hidden = true;
+  $("#newCalendarWeekly").hidden = true;
+  if (isMass) {
+    $("#newCalendarDescription").readOnly = true;
+    $("#newCalendarColors").hidden = true;
+    $("#calendarMassHelp").hidden = false;
+    $("#editMassSongs").hidden = false;
+  } else renderCalendarColors(calendarEvent.colorId);
+  $("#publicEventDialog").close();
+  $("#newCalendarDialog").showModal();
+  $("#newCalendarTitle").focus();
+}
+
+function saveEditedCalendarEvent() {
+  const draft = calendarEventDraft();
+  if (!draft.title) throw Error("Vnesi naslov dogodka.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) throw Error("Izberi veljaven datum.");
+  if (editingCalendarKey.startsWith("mass:")) {
+    const oldDate = editingCalendarKey.slice(5);
+    const entry = state.massHistory.find((item) => item.date === oldDate);
+    if (!entry) throw Error("Načrta maše ni več mogoče najti.");
+    if (draft.date !== oldDate && state.massHistory.some((item) => item.date === draft.date)) {
+      throw Error("Na izbrani datum že obstaja načrt maše.");
+    }
+    entry.date = draft.date;
+    entry.note = draft.title;
+    state.massHistory.sort((left, right) => left.date.localeCompare(right.date));
+    if (state.mass.date === oldDate) {
+      state.mass.date = draft.date;
+      state.mass.note = draft.title;
+    }
+  } else {
+    const id = editingCalendarKey.slice(6);
+    const entry = state.calendarEvents?.find((item) => item.id === id);
+    if (!entry) throw Error("Dogodka ni več mogoče najti.");
+    entry.date = draft.date;
+    entry.title = draft.title;
+    entry.description = draft.description;
+    entry.colorId = draft.colorId;
+  }
+  persist();
+  visibleEventMonth = draft.date.slice(0, 7);
+  editingCalendarKey = null;
+  $("#newCalendarDialog").close();
+  renderAll();
+}
+
+function saveCalendarEvent(event) {
   event.preventDefault();
   if (!isAdminView || !$("#newCalendarDialog").open || !$("#newCalendarForm").reportValidity()) return;
   try {
+    if (editingCalendarKey) {
+      saveEditedCalendarEvent();
+      return;
+    }
     const draft = calendarEventDraft();
     const dates = globalThis.ZborcekCalendarDraft.datesFromDraft(draft);
     const seriesId = crypto.randomUUID();
@@ -3177,6 +3271,18 @@ function saveNewCalendarEvent(event) {
     visibleEventMonth = dates[0].slice(0, 7);
     $("#newCalendarDialog").close();
     renderCalendar();
+  } catch (error) { $("#newCalendarStatus").textContent = error.message; }
+}
+
+function editCalendarMassSongs() {
+  if (!editingCalendarKey?.startsWith("mass:")) return;
+  if (!$("#newCalendarForm").reportValidity()) return;
+  const date = $("#newCalendarDate").value;
+  try {
+    saveEditedCalendarEvent();
+    setView("mass");
+    loadMassFromHistory(date);
+    $("#massDate").scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (error) { $("#newCalendarStatus").textContent = error.message; }
 }
 
@@ -3785,6 +3891,10 @@ function wireEvents() {
     const button = event.target.closest("[data-public-event-date]");
     if (button) openPublicCalendarEvent(button.dataset.publicEventDate);
   });
+  $("#publicEventEditActions")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-calendar-key]");
+    if (button) openEditCalendarEvent(button.dataset.editCalendarKey);
+  });
   $("#closePublicEvent")?.addEventListener("click", () => $("#publicEventDialog").close());
   $("#publicEventDialog")?.addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
   $("#publicEventDialog")?.addEventListener("close", () => {
@@ -3792,14 +3902,16 @@ function wireEvents() {
     $$("[data-public-event-date]").find((button) => button.dataset.publicEventDate === date)?.focus({ preventScroll: true });
   });
   $("#addCalendarEvent")?.addEventListener("click", openNewCalendarEvent);
-  $("#newCalendarForm")?.addEventListener("submit", saveNewCalendarEvent);
+  $("#newCalendarForm")?.addEventListener("submit", saveCalendarEvent);
   $("#newCalendarForm")?.addEventListener("input", refreshCalendarDraft);
   $("#newCalendarForm")?.addEventListener("change", refreshCalendarDraft);
   $("#newCalendarDate")?.addEventListener("change", calendarDraftDateChanged);
   $("#closeNewCalendarEvent")?.addEventListener("click", () => $("#newCalendarDialog").close());
   $("#cancelNewCalendarEvent")?.addEventListener("click", () => $("#newCalendarDialog").close());
+  $("#editMassSongs")?.addEventListener("click", editCalendarMassSongs);
   $("#newCalendarDialog")?.addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
   $("#newCalendarDialog")?.addEventListener("close", () => {
+    editingCalendarKey = null;
     $("#newCalendarForm").reset();
     $("#addCalendarEvent").focus({ preventScroll: true });
   });
