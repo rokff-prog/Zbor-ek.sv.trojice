@@ -548,6 +548,8 @@ textarea {
   border-radius: 8px;
   padding: 14px;
   box-shadow: 0 8px 22px rgba(39, 47, 43, 0.05);
+  display: flex;
+  flex-direction: column;
 }
 
 .slot h3 {
@@ -866,8 +868,43 @@ textarea {
   margin-top: 8px;
 }
 
-.communion-song-field + .communion-song-field { margin-top: 10px; }
-.communion-song-field > span { color: var(--muted); font-size: 12px; }
+.mass-song-field + .mass-song-field { margin-top: 10px; }
+.mass-song-field > span { color: var(--muted); font-size: 12px; }
+.mass-add-song {
+  width: 34px;
+  height: 34px;
+  margin: 12px 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pink);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+}
+.mass-add-song:hover { background: rgba(239, 58, 116, 0.09); }
+.mass-add-part {
+  min-height: 148px;
+  border: 2px dashed rgba(0, 77, 103, 0.28);
+  background: rgba(255, 255, 255, 0.38);
+  color: var(--pink);
+  font-size: 34px;
+  font-weight: 900;
+}
+.mass-add-part:hover { background: rgba(255, 255, 255, 0.68); }
+.mass-part-order {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: -6px -6px 6px 0;
+}
+.mass-part-order button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--blue);
+  background: white;
+}
 .slot-disabled { background: #f0f2f1; box-shadow: none; }
 .slot-disabled select { background: #e5e9e7; color: #62716d; cursor: not-allowed; opacity: 1; }
 

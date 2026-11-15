@@ -881,6 +881,12 @@ function migrateState() {
     address: person.address || "",
   }));
   state.massHistory = Array.isArray(state.massHistory) ? state.massHistory : [];
+  state.mass.customParts = Array.isArray(state.mass.customParts) ? state.mass.customParts : [];
+  state.mass.partOrder = Array.isArray(state.mass.partOrder) ? state.mass.partOrder : [];
+  state.massHistory.forEach((entry) => {
+    entry.customParts = Array.isArray(entry.customParts) ? entry.customParts : [];
+    entry.partOrder = Array.isArray(entry.partOrder) ? entry.partOrder : [];
+  });
   const refreshedImportedDates = new Set();
   for (const seedEntry of seedData.massHistory || []) {
     const entry = structuredClone(seedEntry);
@@ -1486,12 +1492,24 @@ function isMassPartEnabled(date, part) {
   return part !== "Slava" || !isAdventDate(date);
 }
 
+function massPartIds(entry = state.mass) {
+  const custom = (Array.isArray(entry?.customParts) ? entry.customParts : [])
+    .map((item) => typeof item === "string" ? item : item?.id)
+    .filter((id) => typeof id === "string" && id && !MASS_PARTS.includes(id));
+  const available = [...MASS_PARTS, ...new Set(custom)];
+  const ordered = (Array.isArray(entry?.partOrder) ? entry.partOrder : []).filter((id) => available.includes(id));
+  return [...ordered, ...available.filter((id) => !ordered.includes(id))];
+}
+
 function massPartLabel(entry, part) {
-  return typeof entry?.partLabels?.[part] === "string" ? entry.partLabels[part] : part;
+  if (typeof entry?.partLabels?.[part] === "string") return entry.partLabels[part];
+  const custom = (entry?.customParts || []).find((item) => (typeof item === "string" ? item : item?.id) === part);
+  return typeof custom === "object" && custom?.label ? custom.label : part;
 }
 
 function massSongOptions(part, selectedId) {
-  const renamed = massPartLabel(state.mass, part).trim().toLocaleLowerCase("sl") !== part.toLocaleLowerCase("sl");
+  const renamed = !MASS_PARTS.includes(part)
+    || massPartLabel(state.mass, part).trim().toLocaleLowerCase("sl") !== part.toLocaleLowerCase("sl");
   return `<option value="">Izberi pesem</option>` + state.songs
     .filter((song) => !song.isCover && (renamed || song.categories?.includes(part) || song.id === selectedId))
     .slice()
@@ -1511,7 +1529,7 @@ function refreshMassPartSongOptions(part) {
 }
 
 function saveMassPartLabel(part, label, date) {
-  if (!isAdminView || !date || state.mass.date !== date || !MASS_PARTS.includes(part)) return;
+  if (!isAdminView || !date || state.mass.date !== date || !massPartIds().includes(part)) return;
   state.mass.partLabels = { ...(state.mass.partLabels || {}), [part]: label };
   saveMassToHistory();
   persist();
@@ -1519,6 +1537,45 @@ function saveMassPartLabel(part, label, date) {
   renderUpcomingMasses();
   renderCalendar();
   renderPrint();
+}
+
+function addMassSongField(part) {
+  if (!isAdminView || !state.mass.date || !massPartIds().includes(part) || !isMassPartEnabled(state.mass.date, part)) return;
+  state.mass.additionalSelections ||= {};
+  state.mass.additionalSelections[part] = [...(state.mass.additionalSelections[part] || []), ""];
+  saveMassToHistory();
+  persist();
+  renderMass();
+}
+
+function addCustomMassPart(suggestedLabel = "") {
+  if (!isAdminView || !state.mass.date) return;
+  const label = String(suggestedLabel || window.prompt("Ime novega dela maše:") || "").trim();
+  if (!label) return;
+  const id = `custom-${crypto.randomUUID()}`;
+  state.mass.customParts = [...(state.mass.customParts || []), { id, label }];
+  state.mass.partOrder = massPartIds();
+  state.mass.selections[id] = "";
+  state.mass.additionalSelections ||= {};
+  state.mass.additionalSelections[id] = [];
+  state.mass.partLabels = { ...(state.mass.partLabels || {}), [id]: label };
+  saveMassToHistory();
+  persist();
+  renderMass();
+}
+
+function moveCustomMassPart(part, direction) {
+  if (!isAdminView || !(state.mass.customParts || []).some((item) => (typeof item === "string" ? item : item?.id) === part)) return;
+  const order = massPartIds();
+  const from = order.indexOf(part);
+  const to = direction === "first" ? 0 : direction === "last" ? order.length - 1
+    : Math.max(0, Math.min(order.length - 1, from + (direction === "previous" ? -1 : 1)));
+  if (from < 0 || from === to) return;
+  order.splice(to, 0, order.splice(from, 1)[0]);
+  state.mass.partOrder = order;
+  saveMassToHistory();
+  persist();
+  renderMass();
 }
 
 function editMassPartHeading(event) {
@@ -1559,27 +1616,35 @@ function renderMass() {
   $("#massNote").value = state.mass.note || "";
   renderMassCalendar();
   renderUpcomingMasses();
-  $("#massSlots").innerHTML = MASS_PARTS.map((part) => {
+  $("#massSlots").innerHTML = massPartIds().map((part) => {
     if (!isMassPartEnabled(state.mass.date, part)) {
       return `<div class="slot slot-disabled" data-mass-label-part="${escapeAttr(part)}"><h3>${escapeHtml(massPartLabel(state.mass, part))}</h3>
         <select data-mass-part="${escapeAttr(part)}" data-mass-index="0" aria-label="${escapeAttr(part)}" disabled><option value="">V adventu se ne poje</option></select>
       </div>`;
     }
     const selectedIds = [state.mass.selections[part] || "", ...(state.mass.additionalSelections?.[part] || [])];
-    const selectIds = part === "Obhajilo" ? selectedIds : selectedIds.filter(Boolean);
+    const selectIds = selectedIds;
     while (selectIds.length < (part === "Obhajilo" ? 2 : 1)) selectIds.push("");
     const selects = selectIds.map((selectedId, index) => {
       const select = `<select data-mass-part="${escapeAttr(part)}" data-mass-index="${index}" aria-label="${escapeAttr(part)}${selectIds.length > 1 ? ` · ${index + 1}. pesem` : ""}">${massSongOptions(part, selectedId)}</select>`;
-      return part === "Obhajilo" ? `<label class="communion-song-field"><span>${index + 1}. pesem</span>${select}</label>` : select;
+      return selectIds.length > 1 ? `<label class="mass-song-field"><span>${index + 1}. pesem</span>${select}</label>` : select;
     }).join("");
+    const moveControls = MASS_PARTS.includes(part) ? "" : `<div class="mass-part-order" aria-label="Premakni del maše">
+      <button type="button" data-move-mass-part="first" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni na začetek" title="Na začetek">&#x21E4;</button>
+      <button type="button" data-move-mass-part="previous" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni levo" title="Levo">&#x2190;</button>
+      <button type="button" data-move-mass-part="next" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni desno" title="Desno">&#x2192;</button>
+      <button type="button" data-move-mass-part="last" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni na konec" title="Na konec">&#x21E5;</button>
+    </div>`;
 
     return `
       <div class="slot" data-mass-label-part="${escapeAttr(part)}">
+        ${moveControls}
         <h3>${escapeHtml(massPartLabel(state.mass, part))}</h3>
         ${selects}
+        <button class="mass-add-song" type="button" data-add-mass-song="${escapeAttr(part)}" aria-label="Dodaj pesem v ${escapeAttr(massPartLabel(state.mass, part))}" title="Dodaj pesem">+</button>
       </div>
     `;
-  }).join("");
+  }).join("") + `<button class="mass-add-part" type="button" data-add-mass-part aria-label="Dodaj nov del maše" title="Dodaj nov del maše">+</button>`;
 }
 
 function hasMassSongs(entry) {
@@ -1587,7 +1652,7 @@ function hasMassSongs(entry) {
 }
 
 function massProgramRows(entry = state.mass) {
-  return MASS_PARTS.filter((part) => isMassPartEnabled(entry?.date, part))
+  return massPartIds(entry).filter((part) => isMassPartEnabled(entry?.date, part))
     .flatMap((part) => [entry?.selections?.[part], ...(entry?.additionalSelections?.[part] || [])]
     .map((id) => ({ part, label: massPartLabel(entry, part), song: songById(id) }))).filter(({ song }) => song && !song.isCover);
 }
@@ -1605,6 +1670,8 @@ function saveMassToHistory() {
     selections: { ...state.mass.selections },
     additionalSelections: structuredClone(state.mass.additionalSelections || {}),
     partLabels: { ...(state.mass.partLabels || {}) },
+    customParts: structuredClone(state.mass.customParts || []),
+    partOrder: [...massPartIds(state.mass)],
     source: existing?.source || "app",
     importVersion: existing?.importVersion,
     editedByUser: true,
@@ -1650,6 +1717,8 @@ function loadMassFromHistory(date) {
   const entry = state.massHistory.find((item) => item.date === date);
   state.mass.date = date;
   state.mass.partLabels = { ...(entry?.partLabels || {}) };
+  state.mass.customParts = structuredClone(entry?.customParts || []);
+  state.mass.partOrder = [...(entry?.partOrder || [])];
   if (entry) {
     state.mass.note = entry.note || "";
     state.mass.selections = { ...entry.selections };
@@ -1658,6 +1727,8 @@ function loadMassFromHistory(date) {
     state.mass.note = "";
     state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
     state.mass.additionalSelections = {};
+    state.mass.customParts = [];
+    state.mass.partOrder = [];
   }
   visibleMassMonth = date.slice(0, 7);
   persist();
@@ -1671,7 +1742,7 @@ function autosaveMassFromForm(event) {
   if (!event?.target || event.target === $("#massNote")) state.mass.note = $("#massNote").value;
   state.mass.additionalSelections ||= {};
   const changedPart = event?.target?.dataset?.massPart;
-  const parts = changedPart ? [changedPart] : event?.target === $("#massNote") ? [] : MASS_PARTS;
+  const parts = changedPart ? [changedPart] : event?.target === $("#massNote") ? [] : massPartIds();
   parts.forEach((part) => {
     if (changedPart && event.target.dataset.massIndex !== undefined) {
       const index = Number(event.target.dataset.massIndex);
@@ -1685,7 +1756,7 @@ function autosaveMassFromForm(event) {
     }
     const selected = isMassPartEnabled(state.mass.date, part)
       ? $$(`[data-mass-part="${part}"]`).map((select) => select.value) : [];
-    const values = part === "Obhajilo" ? selected : selected.filter(Boolean);
+    const values = selected;
     state.mass.selections[part] = values[0] || "";
     state.mass.additionalSelections[part] = values.slice(1);
   });
@@ -3626,6 +3697,8 @@ function wireEvents() {
       state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
       state.mass.additionalSelections = {};
       state.mass.partLabels = {};
+      state.mass.customParts = [];
+      state.mass.partOrder = [];
       state.mass.note = "";
       state.mass.date = $("#massDate").value;
       visibleMassMonth = state.mass.date.slice(0, 7);
@@ -3637,6 +3710,13 @@ function wireEvents() {
   $("#massNote").addEventListener("input", autosaveMassFromForm);
   $("#massSlots").addEventListener("change", (event) => {
     if (event.target.matches("[data-mass-part]")) autosaveMassFromForm(event);
+  });
+  $("#massSlots").addEventListener("click", (event) => {
+    const addSong = event.target.closest("[data-add-mass-song]");
+    const move = event.target.closest("[data-move-mass-part]");
+    if (addSong) addMassSongField(addSong.dataset.addMassSong);
+    else if (move) moveCustomMassPart(move.dataset.massPartId, move.dataset.moveMassPart);
+    else if (event.target.closest("[data-add-mass-part]")) addCustomMassPart();
   });
   $("#massSlots").addEventListener("dblclick", editMassPartHeading);
   $("#prevMassMonth").addEventListener("click", () => moveMassMonth(-1));
@@ -4113,6 +4193,8 @@ function applyLiveState(remote, isPublic) {
     state.mass.selections = { ...(entry?.selections || Object.fromEntries(MASS_PARTS.map((part) => [part, ""]))) };
     state.mass.additionalSelections = structuredClone(entry?.additionalSelections || {});
     state.mass.partLabels = { ...(entry?.partLabels || {}) };
+    state.mass.customParts = structuredClone(entry?.customParts || []);
+    state.mass.partOrder = [...(entry?.partOrder || [])];
     persist();
   } finally { suppressRemoteSave = false; }
   if (!S.same(before, S.snapshot(state))) renderLiveChanges();

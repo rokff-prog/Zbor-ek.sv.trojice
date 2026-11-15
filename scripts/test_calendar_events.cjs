@@ -79,6 +79,10 @@ async function main() {
   const projected = eventsFromState(state);
   assert.equal(projected[0].description, "Po meri: Pesem\nPo meri: Druga pesem\nPo meri: Pesem\nDruga pesem\nPesem",
     "All additional songs survive blank first slots; order, repeats, canonical IDs, and empty labels are preserved");
+  const customEvent = exportEntries([entry("2026-02-02", { selections: { Vstopna: "song", custom: "second" },
+    customParts: [{ id: "custom", label: "Prošnje" }], partOrder: ["custom", "Vstopna"] })])[0];
+  assert.equal(customEvent.description, "Prošnje: Druga pesem\nVstopna: Pesem",
+    "Custom Mass parts and their chosen order reach the public and Google calendar export");
   assert.equal(JSON.stringify(state), before, "Pure export must not mutate even deeply frozen input");
   assert.ok(!JSON.stringify(projected).includes("PRIVATE_"), "Only whitelisted event metadata is exported");
   assert.equal(exportEntries([entry("2026-01-02", { selections: { Psalm: "missing-canonical" } })])[0].description,
