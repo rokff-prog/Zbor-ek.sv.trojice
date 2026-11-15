@@ -829,6 +829,20 @@ async function loadRemoteSongbook() {
   }
 }
 
+let bundledSongbookPromise;
+function loadBundledSongbook() {
+  if (window.ZBORCEK_SONGBOOK) return Promise.resolve(true);
+  if (bundledSongbookPromise) return bundledSongbookPromise;
+  bundledSongbookPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "zborcek-predstavitev-pesmarica.js?v=20260915-public";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.append(script);
+  });
+  return bundledSongbookPromise;
+}
+
 async function loadRemoteAdminState() {
   if (liveSync && isAdminView && !IS_GITHUB_PUBLIC) return liveSync.refresh(true).catch(console.warn);
   if (remoteStateLoadedForAdmin || !isAdminView || IS_GITHUB_PUBLIC) return;
@@ -4138,14 +4152,20 @@ renderAll();
   if (isAdminView && !IS_GITHUB_PUBLIC) await loadRemoteAdminState();
   else await loadRemotePublicState();
   renderAll();
-  void loadRemoteSongbook().then(() => {
+  const refreshSongbookImages = async () => {
+    await loadCanvaPageImages();
     renderSongbook();
     renderPrint();
-    return loadCanvaPageImages();
-  }).then(() => {
-    renderSongbook();
-    renderPrint();
-  }).catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
+  };
+  // Cached imports can be shown without waiting for the multi-megabyte online songbook.
+  void refreshSongbookImages().catch(console.warn);
+  const songbookPipeline = loadBundledSongbook()
+    .then((loaded) => loaded && refreshSongbookImages())
+    .then(loadRemoteSongbook)
+    .then(refreshSongbookImages);
+  void songbookPipeline.catch(() => {
+      setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš.");
+  });
   syncBirthdayNotifications();
   liveSync?.start();
   let lastCalendarDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
