@@ -18,10 +18,10 @@ const available = [{ canvaPageId: 'P3', sourcePage: 3 }], exportBodies = [];
 const bodies = [], navigations = [], statuses = [];
 const context = vm.createContext({
   URL, File, Blob, crypto: webcrypto, console, isAdminView: true, IS_GITHUB_PUBLIC: false,
-  HOSTED_APP_ORIGIN: "https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site",
+  HOSTED_APP_ORIGIN: "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site",
   state: { canva: {}, canvaPages: [{ id: 'one', page: 1 }, { id: 'two', page: 2 }] },
   window: { confirm: () => confirmBaseline }, persist() {}, saveStateToServer: async () => true,
-  location: { href: "https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site/?source=app", assign: (url) => navigations.push(url) },
+  location: { href: "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site/?source=app", assign: (url) => navigations.push(url) },
   history: { replaceState() {} }, $: node, setView() {}, setPdfImportStatus: (message) => statuses.push(message),
   setTimeout: (action) => { action(); return 1; },
   appendCanvaPdfPage: async (file, page) => {

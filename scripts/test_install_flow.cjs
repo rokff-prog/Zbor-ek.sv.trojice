@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../install-app.js'), 'utf8');
-const publicUrl = 'https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site/?source=app';
+const publicUrl = 'https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site/?source=app';
 function setup(userAgent, standalone = false) {
   const nodes = new Map(), events = {};
   let copied = '', failClipboard = false;
@@ -29,7 +29,7 @@ async function main() {
   assert.equal(samsung.node('#installHelpDialog').open, true);
   assert.equal(samsung.node('#installChromeActions').hidden, false);
   const intent = samsung.node('#openInstallChrome').href;
-  assert.match(intent, /^intent:\/\/zborcek-sv-trojice-haloze\.rok-36\.chatgpt\.site\/\?source=app#Intent;scheme=https;package=com\.android\.chrome;/);
+  assert.match(intent, /^intent:\/\/zborcek-sv-trojice-haloze\.poldi4\.chatgpt\.site\/\?source=app#Intent;scheme=https;package=com\.android\.chrome;/);
   assert.ok(intent.includes('S.browser_fallback_url=' + encodeURIComponent(publicUrl)));
   assert.doesNotMatch(intent, /admin=1|secret|github/);
   assert.equal(samsung.node('#installPublicUrl').value, publicUrl);

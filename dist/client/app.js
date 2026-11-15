@@ -21,7 +21,7 @@ const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const GOOGLE_CALENDAR_ID = "2103b0e25cf9502a583ece20c9286ad5ae4b33d41d001fd381c82531a359d34f@group.calendar.google.com";
 const GOOGLE_CALENDAR_TIMEZONE = "Europe/Ljubljana";
-const HOSTED_APP_ORIGIN = "https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site";
+const HOSTED_APP_ORIGIN = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site";
 const IS_GITHUB_PUBLIC = location.hostname.endsWith("github.io");
 const API_BASE = IS_GITHUB_PUBLIC ? HOSTED_APP_ORIGIN : "";
 
@@ -3451,7 +3451,7 @@ function wireEvents() {
 
   $("#loginButton").addEventListener("click", () => {
     if (location.hostname === "rokff-prog.github.io") {
-      location.assign("https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site/?admin=1");
+      location.assign("https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site/?admin=1");
       return;
     }
     $("#loginStatus").textContent = "";

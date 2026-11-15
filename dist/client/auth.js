@@ -2,7 +2,7 @@
   const localHost = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
   const githubPublic = location.hostname === "rokff-prog.github.io";
   const forcePublic = new URLSearchParams(location.search).has("public");
-  const adminOrigin = "https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site";
+  const adminOrigin = "https://zborcek-sv-trojice-haloze.poldi4.chatgpt.site";
   const adminEntry = location.pathname === "/admin" || new URLSearchParams(location.search).has("admin");
   let stateRevision = 0;
   let pendingSessionCheck = null;
