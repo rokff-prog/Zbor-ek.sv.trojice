@@ -3451,7 +3451,7 @@ function wireEvents() {
 
   $("#loginButton").addEventListener("click", () => {
     if (location.hostname === "rokff-prog.github.io") {
-      location.assign("https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site/admin");
+      location.assign("https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site/?admin=1");
       return;
     }
     $("#loginStatus").textContent = "";

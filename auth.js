@@ -3,6 +3,7 @@
   const githubPublic = location.hostname === "rokff-prog.github.io";
   const forcePublic = new URLSearchParams(location.search).has("public");
   const adminOrigin = "https://zborcek-sv-trojice-haloze.rok-36.chatgpt.site";
+  const adminEntry = location.pathname === "/admin" || new URLSearchParams(location.search).has("admin");
   let stateRevision = 0;
   let pendingSessionCheck = null;
   let signingOut = false;
@@ -11,7 +12,7 @@
     state: { isAdmin: localHost && !forcePublic, username: localHost && !forcePublic ? "lokalni skrbnik" : "" },
     async signIn(username, password) {
       if (githubPublic) {
-        location.assign(`${adminOrigin}/admin`);
+        location.assign(`${adminOrigin}/?admin=1`);
         return api.state;
       }
       if (localHost) {
@@ -36,7 +37,7 @@
         await pendingSessionCheck;
         if (!localHost) await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
         updateState(false, "");
-        if (location.pathname === "/admin") location.assign("/");
+        if (adminEntry) location.assign("/");
       } finally {
         signingOut = false;
       }
@@ -49,7 +50,7 @@
     stateRevision += 1;
     api.state = { isAdmin, username, email: username };
     document.dispatchEvent(new CustomEvent("zborcek-auth-state", { detail: api.state }));
-    if (!isAdmin && location.pathname === "/admin") {
+    if (!isAdmin && adminEntry) {
       const dialog = document.querySelector("#loginDialog");
       if (dialog && !dialog.open) dialog.showModal();
     }
