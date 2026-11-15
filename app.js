@@ -1550,7 +1550,7 @@ function addMassSongField(part) {
 
 function addCustomMassPart(suggestedLabel = "") {
   if (!isAdminView || !state.mass.date) return;
-  const label = String(suggestedLabel || window.prompt("Ime novega dela maše:") || "").trim();
+  const label = String(suggestedLabel || "").trim();
   if (!label) return;
   const id = `custom-${crypto.randomUUID()}`;
   state.mass.customParts = [...(state.mass.customParts || []), { id, label }];
@@ -1562,6 +1562,13 @@ function addCustomMassPart(suggestedLabel = "") {
   saveMassToHistory();
   persist();
   renderMass();
+}
+
+function openCustomMassPartDialog() {
+  if (!isAdminView || !state.mass.date) return;
+  $("#massPartName").value = "";
+  $("#massPartDialog").showModal();
+  $("#massPartName").focus();
 }
 
 function moveCustomMassPart(part, direction) {
@@ -3716,8 +3723,16 @@ function wireEvents() {
     const move = event.target.closest("[data-move-mass-part]");
     if (addSong) addMassSongField(addSong.dataset.addMassSong);
     else if (move) moveCustomMassPart(move.dataset.massPartId, move.dataset.moveMassPart);
-    else if (event.target.closest("[data-add-mass-part]")) addCustomMassPart();
+    else if (event.target.closest("[data-add-mass-part]")) openCustomMassPartDialog();
   });
+  $("#massPartForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const label = $("#massPartName").value.trim();
+    if (!label) return $("#massPartName").focus();
+    addCustomMassPart(label);
+    $("#massPartDialog").close();
+  });
+  $("#cancelMassPart").addEventListener("click", () => $("#massPartDialog").close());
   $("#massSlots").addEventListener("dblclick", editMassPartHeading);
   $("#prevMassMonth").addEventListener("click", () => moveMassMonth(-1));
   $("#nextMassMonth").addEventListener("click", () => moveMassMonth(1));
