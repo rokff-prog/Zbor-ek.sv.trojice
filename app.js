@@ -62,6 +62,7 @@ const SONGBOOK_PAGE_CATALOG = {
 };
 
 let canvaPageImages = new Map();
+let canvaPageImageHashes = new Map();
 let remoteSaveTimer = null;
 let remoteStateLoadedForAdmin = false;
 let suppressRemoteSave = false;
@@ -1045,13 +1046,28 @@ async function loadCanvaPageImages() {
     })).sort((a, b) => a.page - b.page);
     persist();
   }
-  for (const url of canvaPageImages.values()) URL.revokeObjectURL(url);
+  const previousImages = canvaPageImages;
+  const previousHashes = canvaPageImageHashes;
   const known = new Set((state.canvaPages || []).map((page) => Number(page.canvaDbPage || page.page)));
-  canvaPageImages = new Map(bundledSongs.filter((song) => song.imageDataUrl && known.has(Number(song.page || song.number)))
+  const nextImages = new Map(bundledSongs.filter((song) => song.imageDataUrl && known.has(Number(song.page || song.number)))
     .map((song) => [Number(song.page || song.number), song.imageDataUrl]));
+  const nextHashes = new Map();
   for (const record of records) {
-    if (known.has(Number(record.page))) canvaPageImages.set(Number(record.page), URL.createObjectURL(record.blob));
+    const pageNumber = Number(record.page);
+    if (!known.has(pageNumber)) continue;
+    const oldUrl = previousImages.get(pageNumber);
+    const canReuse = oldUrl?.startsWith("blob:") && record.hash && previousHashes.get(pageNumber) === record.hash;
+    nextImages.set(pageNumber, canReuse ? oldUrl : URL.createObjectURL(record.blob));
+    if (record.hash) nextHashes.set(pageNumber, record.hash);
   }
+  canvaPageImages = nextImages;
+  canvaPageImageHashes = nextHashes;
+  // Keep URLs alive while already-rendered cards switch to the refreshed map.
+  window.setTimeout(() => {
+    for (const [pageNumber, url] of previousImages) {
+      if (url?.startsWith("blob:") && nextImages.get(pageNumber) !== url) URL.revokeObjectURL(url);
+    }
+  }, 30000);
   const repaired = repairSongbookMetadata();
   if (refreshSongbookMembership() || repaired) persist();
 }
@@ -4102,7 +4118,8 @@ function applyLiveState(remote, isPublic) {
   if (!S.same(before, S.snapshot(state))) renderLiveChanges();
   if (!isPublic) syncBirthdayNotifications();
   if (oldPages !== JSON.stringify(state.canvaPages)) {
-    void Promise.all([loadRemoteSongbook(), loadCanvaPageImages()]).then(renderLiveChanges).catch(console.warn);
+    void loadCanvaPageImages().then(renderLiveChanges)
+      .then(loadRemoteSongbook).then(loadCanvaPageImages).then(renderLiveChanges).catch(console.warn);
   }
 }
 
