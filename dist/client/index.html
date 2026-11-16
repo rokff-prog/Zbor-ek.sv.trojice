@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261115-fast-start" />
+    <link rel="stylesheet" href="styles.css?v=20261115-mass-fields-2" />
     <script>
       if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
         let updateReloaded = false;
@@ -54,7 +54,7 @@
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow app-version">Različica 2026.11.15-5</p>
+          <p class="eyebrow app-version">Različica 2026.11.16-1</p>
           <h2 id="viewTitle">Pesmarica</h2>
         </div>
         <div class="top-actions admin-only">
@@ -112,6 +112,22 @@
           <div id="upcomingMasses" class="calendar-event-list"></div>
         </section>
       </section>
+
+      <dialog id="massPartDialog" class="import-dialog no-print" aria-labelledby="massPartDialogTitle">
+        <form id="massPartForm" class="editor import-dialog-panel">
+          <header class="songbook-dialog-heading">
+            <h2 id="massPartDialogTitle">Dodaj del maše</h2>
+            <button id="cancelMassPart" class="dialog-close" type="button" aria-label="Zapri" title="Zapri">&times;</button>
+          </header>
+          <label>
+            Ime dela maše
+            <input id="massPartName" type="text" required autocomplete="off" />
+          </label>
+          <div class="toolbar">
+            <button class="primary" type="submit">Dodaj</button>
+          </div>
+        </form>
+      </dialog>
 
       <section id="songs" class="view admin-only">
         <div class="song-library-workspace">
@@ -489,7 +505,6 @@
 
     <script src="auth-config.js?v=20260915-public"></script>
     <script src="auth.js?v=20261115-fast-start"></script>
-    <script src="zborcek-predstavitev-pesmarica.js?v=20260915-public"></script>
     <script src="song-catalog.js?v=20261024-miklavz"></script>
     <script src="song-numbering.js?v=20261025-distinct-arrangements"></script>
     <script src="canva-client.js?v=20261024-new-pages"></script>
@@ -511,8 +526,8 @@
     <script src="live-sync.js?v=20261025-live-sync"></script>
     <script src="vendor/rrule-2.8.1.min.js"></script>
     <script src="calendar-draft.js?v=20261025-calendar-repeat"></script>
-    <script src="calendar-events.js?v=20261026-chat-calendar"></script>
-    <script src="app.js?v=20261115-fast-start"></script>
+    <script src="calendar-events.js?v=20261115-mass-fields-2"></script>
+    <script src="app.js?v=20261116-anonymous-usage"></script>
     <script src="install-app.js?v=20261115-poldi4-restore"></script>
   </body>
 </html>

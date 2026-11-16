@@ -14,6 +14,8 @@ const MASS_PARTS = [
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
 const CHORD_BACKUP_KEY = "zborcek-sv-trojice-chords-v1";
 const BIRTHDAY_NOTIFICATIONS_KEY = "zborcek-birthday-notifications-v1";
+const ANALYTICS_INSTALL_KEY = "zborcek-anonymous-install-v1";
+const ANALYTICS_SESSION_KEY = "zborcek-open-recorded-v1";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
 const CANVA_DB = "zborcek-canva-pages";
 const CANVA_STORE = "pages";
@@ -62,6 +64,7 @@ const SONGBOOK_PAGE_CATALOG = {
 };
 
 let canvaPageImages = new Map();
+let canvaPageImageHashes = new Map();
 let remoteSaveTimer = null;
 let remoteStateLoadedForAdmin = false;
 let suppressRemoteSave = false;
@@ -775,6 +778,46 @@ async function apiFetch(path, options = {}) {
   });
 }
 
+function anonymousInstallId() {
+  let value = localStorage.getItem(ANALYTICS_INSTALL_KEY);
+  if (!value) {
+    value = crypto.randomUUID?.() || `${Date.now()}-${crypto.getRandomValues(new Uint32Array(4)).join("-")}`;
+    localStorage.setItem(ANALYTICS_INSTALL_KEY, value);
+  }
+  return value;
+}
+
+function usageDimensions() {
+  const userAgent = navigator.userAgent || "";
+  const phone = /Mobi|Android.*Mobile|iPhone|iPod/i.test(userAgent) || (innerWidth < 700 && navigator.maxTouchPoints > 0);
+  const tablet = !phone && (/iPad|Tablet|Android/i.test(userAgent) || (innerWidth < 1100 && navigator.maxTouchPoints > 1));
+  const platform = /Android/i.test(userAgent) ? "android" : /iPhone|iPad|iPod/i.test(userAgent) ? "ios"
+    : /Windows/i.test(userAgent) ? "windows" : /Mac/i.test(userAgent) ? "macos" : /Linux/i.test(userAgent) ? "linux" : "other";
+  const browser = /Edg\//i.test(userAgent) ? "edge" : /Firefox\//i.test(userAgent) ? "firefox"
+    : /CriOS|Chrome\//i.test(userAgent) ? "chrome" : /Safari\//i.test(userAgent) ? "safari" : "other";
+  return {
+    device: phone ? "phone" : tablet ? "tablet" : "computer",
+    platform,
+    browser,
+    mode: matchMedia("(display-mode: standalone)").matches || navigator.standalone ? "installed" : "browser",
+  };
+}
+
+async function recordAnonymousUsage(type) {
+  if (type === "open" && sessionStorage.getItem(ANALYTICS_SESSION_KEY)) return;
+  try {
+    const response = await apiFetch("/api/usage", {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, installId: anonymousInstallId(), ...usageDimensions() }),
+    });
+    if (response.ok && type === "open") sessionStorage.setItem(ANALYTICS_SESSION_KEY, "1");
+  } catch {
+    // Analytics must never interrupt opening the songbook or calendar.
+  }
+}
+
 async function saveStateToServer() {
   if (!isAdminView || IS_GITHUB_PUBLIC) return false;
   if (liveSync) return liveSync.save();
@@ -829,6 +872,20 @@ async function loadRemoteSongbook() {
   }
 }
 
+let bundledSongbookPromise;
+function loadBundledSongbook() {
+  if (window.ZBORCEK_SONGBOOK) return Promise.resolve(true);
+  if (bundledSongbookPromise) return bundledSongbookPromise;
+  bundledSongbookPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "zborcek-predstavitev-pesmarica.js?v=20260915-public";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.append(script);
+  });
+  return bundledSongbookPromise;
+}
+
 async function loadRemoteAdminState() {
   if (liveSync && isAdminView && !IS_GITHUB_PUBLIC) return liveSync.refresh(true).catch(console.warn);
   if (remoteStateLoadedForAdmin || !isAdminView || IS_GITHUB_PUBLIC) return;
@@ -866,6 +923,12 @@ function migrateState() {
     address: person.address || "",
   }));
   state.massHistory = Array.isArray(state.massHistory) ? state.massHistory : [];
+  state.mass.customParts = Array.isArray(state.mass.customParts) ? state.mass.customParts : [];
+  state.mass.partOrder = Array.isArray(state.mass.partOrder) ? state.mass.partOrder : [];
+  state.massHistory.forEach((entry) => {
+    entry.customParts = Array.isArray(entry.customParts) ? entry.customParts : [];
+    entry.partOrder = Array.isArray(entry.partOrder) ? entry.partOrder : [];
+  });
   const refreshedImportedDates = new Set();
   for (const seedEntry of seedData.massHistory || []) {
     const entry = structuredClone(seedEntry);
@@ -1031,13 +1094,28 @@ async function loadCanvaPageImages() {
     })).sort((a, b) => a.page - b.page);
     persist();
   }
-  for (const url of canvaPageImages.values()) URL.revokeObjectURL(url);
+  const previousImages = canvaPageImages;
+  const previousHashes = canvaPageImageHashes;
   const known = new Set((state.canvaPages || []).map((page) => Number(page.canvaDbPage || page.page)));
-  canvaPageImages = new Map(bundledSongs.filter((song) => song.imageDataUrl && known.has(Number(song.page || song.number)))
+  const nextImages = new Map(bundledSongs.filter((song) => song.imageDataUrl && known.has(Number(song.page || song.number)))
     .map((song) => [Number(song.page || song.number), song.imageDataUrl]));
+  const nextHashes = new Map();
   for (const record of records) {
-    if (known.has(Number(record.page))) canvaPageImages.set(Number(record.page), URL.createObjectURL(record.blob));
+    const pageNumber = Number(record.page);
+    if (!known.has(pageNumber)) continue;
+    const oldUrl = previousImages.get(pageNumber);
+    const canReuse = oldUrl?.startsWith("blob:") && record.hash && previousHashes.get(pageNumber) === record.hash;
+    nextImages.set(pageNumber, canReuse ? oldUrl : URL.createObjectURL(record.blob));
+    if (record.hash) nextHashes.set(pageNumber, record.hash);
   }
+  canvaPageImages = nextImages;
+  canvaPageImageHashes = nextHashes;
+  // Keep URLs alive while already-rendered cards switch to the refreshed map.
+  setTimeout(() => {
+    for (const [pageNumber, url] of previousImages) {
+      if (url?.startsWith("blob:") && nextImages.get(pageNumber) !== url) URL.revokeObjectURL(url);
+    }
+  }, 30000).unref?.();
   const repaired = repairSongbookMetadata();
   if (refreshSongbookMembership() || repaired) persist();
 }
@@ -1456,12 +1534,24 @@ function isMassPartEnabled(date, part) {
   return part !== "Slava" || !isAdventDate(date);
 }
 
+function massPartIds(entry = state.mass) {
+  const custom = (Array.isArray(entry?.customParts) ? entry.customParts : [])
+    .map((item) => typeof item === "string" ? item : item?.id)
+    .filter((id) => typeof id === "string" && id && !MASS_PARTS.includes(id));
+  const available = [...MASS_PARTS, ...new Set(custom)];
+  const ordered = (Array.isArray(entry?.partOrder) ? entry.partOrder : []).filter((id) => available.includes(id));
+  return [...ordered, ...available.filter((id) => !ordered.includes(id))];
+}
+
 function massPartLabel(entry, part) {
-  return typeof entry?.partLabels?.[part] === "string" ? entry.partLabels[part] : part;
+  if (typeof entry?.partLabels?.[part] === "string") return entry.partLabels[part];
+  const custom = (entry?.customParts || []).find((item) => (typeof item === "string" ? item : item?.id) === part);
+  return typeof custom === "object" && custom?.label ? custom.label : part;
 }
 
 function massSongOptions(part, selectedId) {
-  const renamed = massPartLabel(state.mass, part).trim().toLocaleLowerCase("sl") !== part.toLocaleLowerCase("sl");
+  const renamed = !MASS_PARTS.includes(part)
+    || massPartLabel(state.mass, part).trim().toLocaleLowerCase("sl") !== part.toLocaleLowerCase("sl");
   return `<option value="">Izberi pesem</option>` + state.songs
     .filter((song) => !song.isCover && (renamed || song.categories?.includes(part) || song.id === selectedId))
     .slice()
@@ -1481,7 +1571,7 @@ function refreshMassPartSongOptions(part) {
 }
 
 function saveMassPartLabel(part, label, date) {
-  if (!isAdminView || !date || state.mass.date !== date || !MASS_PARTS.includes(part)) return;
+  if (!isAdminView || !date || state.mass.date !== date || !massPartIds().includes(part)) return;
   state.mass.partLabels = { ...(state.mass.partLabels || {}), [part]: label };
   saveMassToHistory();
   persist();
@@ -1489,6 +1579,52 @@ function saveMassPartLabel(part, label, date) {
   renderUpcomingMasses();
   renderCalendar();
   renderPrint();
+}
+
+function addMassSongField(part) {
+  if (!isAdminView || !state.mass.date || !massPartIds().includes(part) || !isMassPartEnabled(state.mass.date, part)) return;
+  state.mass.additionalSelections ||= {};
+  state.mass.additionalSelections[part] = [...(state.mass.additionalSelections[part] || []), ""];
+  saveMassToHistory();
+  persist();
+  renderMass();
+}
+
+function addCustomMassPart(suggestedLabel = "") {
+  if (!isAdminView || !state.mass.date) return;
+  const label = String(suggestedLabel || "").trim();
+  if (!label) return;
+  const id = `custom-${crypto.randomUUID()}`;
+  state.mass.customParts = [...(state.mass.customParts || []), { id, label }];
+  state.mass.partOrder = massPartIds();
+  state.mass.selections[id] = "";
+  state.mass.additionalSelections ||= {};
+  state.mass.additionalSelections[id] = [];
+  state.mass.partLabels = { ...(state.mass.partLabels || {}), [id]: label };
+  saveMassToHistory();
+  persist();
+  renderMass();
+}
+
+function openCustomMassPartDialog() {
+  if (!isAdminView || !state.mass.date) return;
+  $("#massPartName").value = "";
+  $("#massPartDialog").showModal();
+  $("#massPartName").focus();
+}
+
+function moveCustomMassPart(part, direction) {
+  if (!isAdminView || !(state.mass.customParts || []).some((item) => (typeof item === "string" ? item : item?.id) === part)) return;
+  const order = massPartIds();
+  const from = order.indexOf(part);
+  const to = direction === "first" ? 0 : direction === "last" ? order.length - 1
+    : Math.max(0, Math.min(order.length - 1, from + (direction === "previous" ? -1 : 1)));
+  if (from < 0 || from === to) return;
+  order.splice(to, 0, order.splice(from, 1)[0]);
+  state.mass.partOrder = order;
+  saveMassToHistory();
+  persist();
+  renderMass();
 }
 
 function editMassPartHeading(event) {
@@ -1529,27 +1665,35 @@ function renderMass() {
   $("#massNote").value = state.mass.note || "";
   renderMassCalendar();
   renderUpcomingMasses();
-  $("#massSlots").innerHTML = MASS_PARTS.map((part) => {
+  $("#massSlots").innerHTML = massPartIds().map((part) => {
     if (!isMassPartEnabled(state.mass.date, part)) {
       return `<div class="slot slot-disabled" data-mass-label-part="${escapeAttr(part)}"><h3>${escapeHtml(massPartLabel(state.mass, part))}</h3>
         <select data-mass-part="${escapeAttr(part)}" data-mass-index="0" aria-label="${escapeAttr(part)}" disabled><option value="">V adventu se ne poje</option></select>
       </div>`;
     }
     const selectedIds = [state.mass.selections[part] || "", ...(state.mass.additionalSelections?.[part] || [])];
-    const selectIds = part === "Obhajilo" ? selectedIds : selectedIds.filter(Boolean);
+    const selectIds = selectedIds;
     while (selectIds.length < (part === "Obhajilo" ? 2 : 1)) selectIds.push("");
     const selects = selectIds.map((selectedId, index) => {
       const select = `<select data-mass-part="${escapeAttr(part)}" data-mass-index="${index}" aria-label="${escapeAttr(part)}${selectIds.length > 1 ? ` · ${index + 1}. pesem` : ""}">${massSongOptions(part, selectedId)}</select>`;
-      return part === "Obhajilo" ? `<label class="communion-song-field"><span>${index + 1}. pesem</span>${select}</label>` : select;
+      return selectIds.length > 1 ? `<label class="mass-song-field"><span>${index + 1}. pesem</span>${select}</label>` : select;
     }).join("");
+    const moveControls = MASS_PARTS.includes(part) ? "" : `<div class="mass-part-order" aria-label="Premakni del maše">
+      <button type="button" data-move-mass-part="first" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni na začetek" title="Na začetek">&#x21E4;</button>
+      <button type="button" data-move-mass-part="previous" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni levo" title="Levo">&#x2190;</button>
+      <button type="button" data-move-mass-part="next" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni desno" title="Desno">&#x2192;</button>
+      <button type="button" data-move-mass-part="last" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni na konec" title="Na konec">&#x21E5;</button>
+    </div>`;
 
     return `
       <div class="slot" data-mass-label-part="${escapeAttr(part)}">
+        ${moveControls}
         <h3>${escapeHtml(massPartLabel(state.mass, part))}</h3>
         ${selects}
+        <button class="mass-add-song" type="button" data-add-mass-song="${escapeAttr(part)}" aria-label="Dodaj pesem v ${escapeAttr(massPartLabel(state.mass, part))}" title="Dodaj pesem">+</button>
       </div>
     `;
-  }).join("");
+  }).join("") + `<button class="mass-add-part" type="button" data-add-mass-part aria-label="Dodaj nov del maše" title="Dodaj nov del maše">+</button>`;
 }
 
 function hasMassSongs(entry) {
@@ -1557,7 +1701,7 @@ function hasMassSongs(entry) {
 }
 
 function massProgramRows(entry = state.mass) {
-  return MASS_PARTS.filter((part) => isMassPartEnabled(entry?.date, part))
+  return massPartIds(entry).filter((part) => isMassPartEnabled(entry?.date, part))
     .flatMap((part) => [entry?.selections?.[part], ...(entry?.additionalSelections?.[part] || [])]
     .map((id) => ({ part, label: massPartLabel(entry, part), song: songById(id) }))).filter(({ song }) => song && !song.isCover);
 }
@@ -1575,6 +1719,8 @@ function saveMassToHistory() {
     selections: { ...state.mass.selections },
     additionalSelections: structuredClone(state.mass.additionalSelections || {}),
     partLabels: { ...(state.mass.partLabels || {}) },
+    customParts: structuredClone(state.mass.customParts || []),
+    partOrder: [...massPartIds(state.mass)],
     source: existing?.source || "app",
     importVersion: existing?.importVersion,
     editedByUser: true,
@@ -1620,6 +1766,8 @@ function loadMassFromHistory(date) {
   const entry = state.massHistory.find((item) => item.date === date);
   state.mass.date = date;
   state.mass.partLabels = { ...(entry?.partLabels || {}) };
+  state.mass.customParts = structuredClone(entry?.customParts || []);
+  state.mass.partOrder = [...(entry?.partOrder || [])];
   if (entry) {
     state.mass.note = entry.note || "";
     state.mass.selections = { ...entry.selections };
@@ -1628,6 +1776,8 @@ function loadMassFromHistory(date) {
     state.mass.note = "";
     state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
     state.mass.additionalSelections = {};
+    state.mass.customParts = [];
+    state.mass.partOrder = [];
   }
   visibleMassMonth = date.slice(0, 7);
   persist();
@@ -1641,7 +1791,7 @@ function autosaveMassFromForm(event) {
   if (!event?.target || event.target === $("#massNote")) state.mass.note = $("#massNote").value;
   state.mass.additionalSelections ||= {};
   const changedPart = event?.target?.dataset?.massPart;
-  const parts = changedPart ? [changedPart] : event?.target === $("#massNote") ? [] : MASS_PARTS;
+  const parts = changedPart ? [changedPart] : event?.target === $("#massNote") ? [] : massPartIds();
   parts.forEach((part) => {
     if (changedPart && event.target.dataset.massIndex !== undefined) {
       const index = Number(event.target.dataset.massIndex);
@@ -1655,7 +1805,7 @@ function autosaveMassFromForm(event) {
     }
     const selected = isMassPartEnabled(state.mass.date, part)
       ? $$(`[data-mass-part="${part}"]`).map((select) => select.value) : [];
-    const values = part === "Obhajilo" ? selected : selected.filter(Boolean);
+    const values = selected;
     state.mass.selections[part] = values[0] || "";
     state.mass.additionalSelections[part] = values.slice(1);
   });
@@ -3558,6 +3708,12 @@ function wireEvents() {
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
   wireCalendarMonthSwipe();
   wireMobileTabSwipe();
+  $("#googleCalendarOpen")?.addEventListener("click", (event) => {
+    const link = event.currentTarget;
+    if (!link.classList.contains("disabled") && link.getAttribute("href") !== "#") {
+      void recordAnonymousUsage("calendar-add");
+    }
+  });
 
   $("#loginButton").addEventListener("click", () => {
     if (location.hostname === "rokff-prog.github.io") {
@@ -3596,6 +3752,8 @@ function wireEvents() {
       state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
       state.mass.additionalSelections = {};
       state.mass.partLabels = {};
+      state.mass.customParts = [];
+      state.mass.partOrder = [];
       state.mass.note = "";
       state.mass.date = $("#massDate").value;
       visibleMassMonth = state.mass.date.slice(0, 7);
@@ -3608,6 +3766,21 @@ function wireEvents() {
   $("#massSlots").addEventListener("change", (event) => {
     if (event.target.matches("[data-mass-part]")) autosaveMassFromForm(event);
   });
+  $("#massSlots").addEventListener("click", (event) => {
+    const addSong = event.target.closest("[data-add-mass-song]");
+    const move = event.target.closest("[data-move-mass-part]");
+    if (addSong) addMassSongField(addSong.dataset.addMassSong);
+    else if (move) moveCustomMassPart(move.dataset.massPartId, move.dataset.moveMassPart);
+    else if (event.target.closest("[data-add-mass-part]")) openCustomMassPartDialog();
+  });
+  $("#massPartForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const label = $("#massPartName").value.trim();
+    if (!label) return $("#massPartName").focus();
+    addCustomMassPart(label);
+    $("#massPartDialog").close();
+  });
+  $("#cancelMassPart").addEventListener("click", () => $("#massPartDialog").close());
   $("#massSlots").addEventListener("dblclick", editMassPartHeading);
   $("#prevMassMonth").addEventListener("click", () => moveMassMonth(-1));
   $("#nextMassMonth").addEventListener("click", () => moveMassMonth(1));
@@ -4083,12 +4256,15 @@ function applyLiveState(remote, isPublic) {
     state.mass.selections = { ...(entry?.selections || Object.fromEntries(MASS_PARTS.map((part) => [part, ""]))) };
     state.mass.additionalSelections = structuredClone(entry?.additionalSelections || {});
     state.mass.partLabels = { ...(entry?.partLabels || {}) };
+    state.mass.customParts = structuredClone(entry?.customParts || []);
+    state.mass.partOrder = [...(entry?.partOrder || [])];
     persist();
   } finally { suppressRemoteSave = false; }
   if (!S.same(before, S.snapshot(state))) renderLiveChanges();
   if (!isPublic) syncBirthdayNotifications();
   if (oldPages !== JSON.stringify(state.canvaPages)) {
-    void Promise.all([loadRemoteSongbook(), loadCanvaPageImages()]).then(renderLiveChanges).catch(console.warn);
+    void loadCanvaPageImages().then(renderLiveChanges)
+      .then(loadRemoteSongbook).then(loadCanvaPageImages).then(renderLiveChanges).catch(console.warn);
   }
 }
 
@@ -4135,17 +4311,24 @@ renderAll();
 (async function bootstrap() {
   syncCanvaSongbook({ silent: true });
   await window.zborcekAuth?.ready;
+  if (!isAdminView) void recordAnonymousUsage("open");
   if (isAdminView && !IS_GITHUB_PUBLIC) await loadRemoteAdminState();
   else await loadRemotePublicState();
   renderAll();
-  void loadRemoteSongbook().then(() => {
+  const refreshSongbookImages = async () => {
+    await loadCanvaPageImages();
     renderSongbook();
     renderPrint();
-    return loadCanvaPageImages();
-  }).then(() => {
-    renderSongbook();
-    renderPrint();
-  }).catch(() => setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš."));
+  };
+  // Cached imports can be shown without waiting for the multi-megabyte online songbook.
+  void refreshSongbookImages().catch(console.warn);
+  const songbookPipeline = loadBundledSongbook()
+    .then((loaded) => loaded && refreshSongbookImages())
+    .then(loadRemoteSongbook)
+    .then(refreshSongbookImages);
+  void songbookPipeline.catch(() => {
+      setPdfImportStatus("Shranjene Canva strani niso dostopne. PDF lahko ponovno uvoziš.");
+  });
   syncBirthdayNotifications();
   liveSync?.start();
   let lastCalendarDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Ljubljana" }).format(new Date());
