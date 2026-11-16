@@ -804,6 +804,7 @@ function usageDimensions() {
 }
 
 async function recordAnonymousUsage(type) {
+  if (navigator.webdriver) return;
   if (type === "open" && sessionStorage.getItem(ANALYTICS_SESSION_KEY)) return;
   try {
     const response = await apiFetch("/api/usage", {
