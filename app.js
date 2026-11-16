@@ -14,6 +14,8 @@ const MASS_PARTS = [
 const STORAGE_KEY = "zborcek-sv-trojice-v2";
 const CHORD_BACKUP_KEY = "zborcek-sv-trojice-chords-v1";
 const BIRTHDAY_NOTIFICATIONS_KEY = "zborcek-birthday-notifications-v1";
+const ANALYTICS_INSTALL_KEY = "zborcek-anonymous-install-v1";
+const ANALYTICS_SESSION_KEY = "zborcek-open-recorded-v1";
 const CANVA_DESIGN_URL = "https://www.canva.com/design/DAG0E3TU2Go/ohP3lnBwbOauFqYY09DBcw/edit";
 const CANVA_DB = "zborcek-canva-pages";
 const CANVA_STORE = "pages";
@@ -776,6 +778,46 @@ async function apiFetch(path, options = {}) {
   });
 }
 
+function anonymousInstallId() {
+  let value = localStorage.getItem(ANALYTICS_INSTALL_KEY);
+  if (!value) {
+    value = crypto.randomUUID?.() || `${Date.now()}-${crypto.getRandomValues(new Uint32Array(4)).join("-")}`;
+    localStorage.setItem(ANALYTICS_INSTALL_KEY, value);
+  }
+  return value;
+}
+
+function usageDimensions() {
+  const userAgent = navigator.userAgent || "";
+  const phone = /Mobi|Android.*Mobile|iPhone|iPod/i.test(userAgent) || (innerWidth < 700 && navigator.maxTouchPoints > 0);
+  const tablet = !phone && (/iPad|Tablet|Android/i.test(userAgent) || (innerWidth < 1100 && navigator.maxTouchPoints > 1));
+  const platform = /Android/i.test(userAgent) ? "android" : /iPhone|iPad|iPod/i.test(userAgent) ? "ios"
+    : /Windows/i.test(userAgent) ? "windows" : /Mac/i.test(userAgent) ? "macos" : /Linux/i.test(userAgent) ? "linux" : "other";
+  const browser = /Edg\//i.test(userAgent) ? "edge" : /Firefox\//i.test(userAgent) ? "firefox"
+    : /CriOS|Chrome\//i.test(userAgent) ? "chrome" : /Safari\//i.test(userAgent) ? "safari" : "other";
+  return {
+    device: phone ? "phone" : tablet ? "tablet" : "computer",
+    platform,
+    browser,
+    mode: matchMedia("(display-mode: standalone)").matches || navigator.standalone ? "installed" : "browser",
+  };
+}
+
+async function recordAnonymousUsage(type) {
+  if (type === "open" && sessionStorage.getItem(ANALYTICS_SESSION_KEY)) return;
+  try {
+    const response = await apiFetch("/api/usage", {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, installId: anonymousInstallId(), ...usageDimensions() }),
+    });
+    if (response.ok && type === "open") sessionStorage.setItem(ANALYTICS_SESSION_KEY, "1");
+  } catch {
+    // Analytics must never interrupt opening the songbook or calendar.
+  }
+}
+
 async function saveStateToServer() {
   if (!isAdminView || IS_GITHUB_PUBLIC) return false;
   if (liveSync) return liveSync.save();
@@ -1069,11 +1111,11 @@ async function loadCanvaPageImages() {
   canvaPageImages = nextImages;
   canvaPageImageHashes = nextHashes;
   // Keep URLs alive while already-rendered cards switch to the refreshed map.
-  window.setTimeout(() => {
+  setTimeout(() => {
     for (const [pageNumber, url] of previousImages) {
       if (url?.startsWith("blob:") && nextImages.get(pageNumber) !== url) URL.revokeObjectURL(url);
     }
-  }, 30000);
+  }, 30000).unref?.();
   const repaired = repairSongbookMetadata();
   if (refreshSongbookMembership() || repaired) persist();
 }
@@ -3666,6 +3708,12 @@ function wireEvents() {
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
   wireCalendarMonthSwipe();
   wireMobileTabSwipe();
+  $("#googleCalendarOpen")?.addEventListener("click", (event) => {
+    const link = event.currentTarget;
+    if (!link.classList.contains("disabled") && link.getAttribute("href") !== "#") {
+      void recordAnonymousUsage("calendar-add");
+    }
+  });
 
   $("#loginButton").addEventListener("click", () => {
     if (location.hostname === "rokff-prog.github.io") {
@@ -4263,6 +4311,7 @@ renderAll();
 (async function bootstrap() {
   syncCanvaSongbook({ silent: true });
   await window.zborcekAuth?.ready;
+  if (!isAdminView) void recordAnonymousUsage("open");
   if (isAdminView && !IS_GITHUB_PUBLIC) await loadRemoteAdminState();
   else await loadRemotePublicState();
   renderAll();
