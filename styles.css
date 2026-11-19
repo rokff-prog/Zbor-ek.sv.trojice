@@ -1447,6 +1447,10 @@ body.measuring-chords .chord-print { display: block; }
   line-height: 1.45;
 }
 
+.chord-print-body-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .chord-print-column {
   display: flow-root;
   min-width: 0;

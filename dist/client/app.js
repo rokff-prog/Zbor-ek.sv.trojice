@@ -1170,6 +1170,7 @@ function importSongLibrary() {
   for (const correction of catalog.chordCorrections || []) {
     for (const song of state.songs) {
       if (songbookTitleKey(song.title) !== songbookTitleKey(correction.title) && (!correction.link || song.link !== correction.link)) continue;
+      if (correction.printColumns === 1) song.chordPrintColumns = 1;
       if (song.chordRevision === correction.version) continue;
       if (song.chords || song.inlineChords) {
         song.chordHistory = [...(song.chordHistory || []), {
@@ -2380,8 +2381,10 @@ function splitChordPrintLines(lines) {
   return [lines.slice(0, split), lines.slice(split)];
 }
 
-function renderChordPrintColumns(text) {
-  return splitChordPrintLines(tokenLines(tokenizeInlineChords(text))).map((lines) => {
+function renderChordPrintColumns(text, columnCount = 2) {
+  const lines = tokenLines(tokenizeInlineChords(text));
+  const groups = columnCount === 1 ? [lines] : splitChordPrintLines(lines);
+  return groups.map((lines) => {
     const visible = lines.slice();
     while (visible.length && !visible[0].length) visible.shift();
     while (visible.length && !visible[visible.length - 1].length) visible.pop();
@@ -2393,15 +2396,18 @@ function renderChordPrint(songsToPrint = getChordSongs()) {
   const print = $("#chordPrint");
   if (!print) return;
   const songs = songsToPrint;
-  print.innerHTML = songs.map((song, index) => `
+  print.innerHTML = songs.map((song, index) => {
+    const columnCount = song.chordPrintColumns === 1 || song.printColumns === 1 ? 1 : 2;
+    return `
     <section class="chord-print-page">
       <div class="print-song-number">${escapeHtml(songDisplayNumber(song))}</div>
       <div class="chord-print-viewport"><div class="chord-print-content">
         <h1>${escapeHtml(song.title)}</h1>
-        <div class="chord-print-body">${renderChordPrintColumns(song.inlineChords || song.chords || song.lyrics || "")}</div>
+        <div class="chord-print-body${columnCount === 1 ? " chord-print-body-single" : ""}">${renderChordPrintColumns(song.inlineChords || song.chords || song.lyrics || "", columnCount)}</div>
       </div></div>
     </section>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function fitChordPrint() {
@@ -2417,7 +2423,7 @@ function fitChordPrint() {
       if (!viewport.clientWidth || !viewport.clientHeight) return false;
       content.style.width = `${viewport.clientWidth}px`;
       const columns = [...body.querySelectorAll(".chord-print-column")];
-      if (columns.length !== 2 || columns.some((column) => !column.clientWidth)) return false;
+      if (![1, 2].includes(columns.length) || columns.some((column) => !column.clientWidth)) return false;
       const widthScale = Math.min(1, ...columns.map((column) =>
         column.clientWidth / Math.max(1, column.scrollWidth)));
       body.style.fontSize = `${12 * widthScale}pt`;

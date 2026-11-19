@@ -88,6 +88,10 @@ run(`renderChordPrint([window.ZBORCEK_SONG_CATALOG.chordCorrections.find((song) 
 assert.equal((node("#chordPrint").innerHTML.match(/class="chord-print-page"/g) || []).length, 1, "Miklavz also stays on one sheet");
 assert.equal((node("#chordPrint").innerHTML.match(/class="chord-print-column"/g) || []).length, 2);
 assert.equal((node("#chordPrint").innerHTML.match(/\(2x\)/g) || []).length, 3, "Every full refrain is retained");
+run(`renderChordPrint([window.ZBORCEK_SONG_CATALOG.chordCorrections.find((song) => song.title === 'Angelček varuh moj')])`);
+assert.match(node("#chordPrint").innerHTML, /chord-print-body-single/);
+assert.equal((node("#chordPrint").innerHTML.match(/class="chord-print-column"/g) || []).length, 1,
+  "Angelček varuh moj always prints in one column");
 pages[0].viewport.clientWidth = 0;
 assert.equal(run("printChordSongs(state.songs)"), false);
 assert.equal(printCalls, 1, "Never print unmeasurable, potentially clipped content");

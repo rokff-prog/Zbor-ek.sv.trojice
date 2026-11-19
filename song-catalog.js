@@ -5,6 +5,7 @@ window.ZBORCEK_SONG_CATALOG = {
       "version": "user-image-angelcek-varuh-moj-2026-11-19-v2",
       "title": "Angelček varuh moj",
       "link": "",
+      "printColumns": 1,
       "inlineChords": "[G]Angelček varuh moj, varuj me [D7]ti nocoj,\nvaruj me [G]ti no[e]coj, [a]angel[D]ček [G]moj,\n[D7]varuj me [G]ti no[e]coj, [a]angel[D]ček [G]moj.\n\n[G]Bog pa je stvarnik moj, ustvaril me je [D7]na svet,\nBog pa mi [G]daj še [e]to [a]noč pre[D]ži[G]vet,\n[D7]Bog pa mi [G]daj še [e]to [a]noč pre[D]ži[G]vet.\n\n[G]Ti boš pri meni spal in me boš [D7]varoval,\njaz pa bom [G]sa[e]njal [a]tiho [D]kraj [G]te,\n[D7]jaz pa bom [G]sa[e]njal [a]tiho [D]kraj [G]te."
     },
     {
