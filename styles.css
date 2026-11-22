@@ -1938,6 +1938,17 @@ body.songbook-dialog-open {
   box-shadow: none;
 }
 
+.songbook-settings-status {
+  min-height: 20px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.songbook-settings-status[data-state="saving"] { color: var(--blue); }
+.songbook-settings-status[data-state="saved"] { color: var(--green-dark); }
+.songbook-settings-status[data-state="error"] { color: #a22a2a; }
+
 .mass-part-fieldset {
   border: 1px solid var(--line);
   border-radius: 8px;

@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/zborcek-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/zborcek-180.png" />
-    <link rel="stylesheet" href="styles.css?v=20261119-single-chord-column" />
+    <link rel="stylesheet" href="styles.css?v=20261122-song-settings-save" />
     <script>
       if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
         let updateReloaded = false;
@@ -54,7 +54,7 @@
     <main class="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow app-version">Različica 2026.11.22-3</p>
+          <p class="eyebrow app-version">Različica 2026.11.22-4</p>
           <h2 id="viewTitle">Pesmarica</h2>
         </div>
         <div class="top-actions admin-only">
@@ -239,7 +239,8 @@
                 <label class="checkbox"><input id="songbookKnown" type="checkbox" /> Že znamo</label>
                 <label>Besedilo<textarea id="songbookLyrics" rows="6"></textarea></label>
                 <button id="openSongChords" class="ghost" type="button">Uredi akorde</button>
-                <button class="primary" type="submit">Shrani nastavitve</button>
+                <p id="songbookSettingsStatus" class="songbook-settings-status" role="status" aria-live="polite"></p>
+                <button id="saveSongbookSettings" class="primary" type="submit">Shrani nastavitve</button>
                 <button id="deleteSongbookPage" class="danger" type="button">Izbriši stran iz pesmarice</button>
               </form>
             </div>
@@ -527,7 +528,7 @@
     <script src="vendor/rrule-2.8.1.min.js"></script>
     <script src="calendar-draft.js?v=20261025-calendar-repeat"></script>
     <script src="calendar-events.js?v=20261122-song-notes"></script>
-    <script src="app.js?v=20261122-mass-song-notes"></script>
+    <script src="app.js?v=20261122-song-settings-save"></script>
     <script src="install-app.js?v=20261115-poldi4-restore"></script>
   </body>
 </html>

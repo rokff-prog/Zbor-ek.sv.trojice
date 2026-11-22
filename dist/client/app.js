@@ -71,6 +71,7 @@ let suppressRemoteSave = false;
 let liveSync = null;
 let liveRenderPending = false;
 const openMassSongNotes = new Set();
+let songbookSettingsSaveSequence = 0;
 
 const importedChordSheets = {
   "Ves dan vso noč": `E
@@ -2023,6 +2024,7 @@ function openSongbookDialog(id, returnSongId = null) {
   selectedSongbookPageId = id;
   songDialogReturnSongId = returnSongId;
   if (!currentSongbookItem()) { selectedSongbookPageId = null; return; }
+  setSongbookSettingsStatus("");
   renderSongbookEditor();
   renderSongbookDialog();
   if (!dialog.open) dialog.showModal();
@@ -2040,6 +2042,7 @@ function wireSongbookDialog() {
     const returnSongId = songDialogReturnSongId;
     selectedSongbookPageId = null;
     songDialogReturnSongId = null;
+    setSongbookSettingsStatus("");
     document.body.classList.remove("songbook-dialog-open");
     $("#songbookDialogPreview").innerHTML = "";
     renderSongbookEditor();
@@ -2391,6 +2394,53 @@ function saveSharedSongSettings(song, settings, selectedPage = null) {
       if (!page.cover) page.songId = canonicalId;
     }
   }
+}
+
+function selectedSongbookCategories() {
+  return $$("#songbookMassParts input:checked").map((input) => input.value);
+}
+
+function setSongbookSettingsStatus(message, stateName = "") {
+  const status = $("#songbookSettingsStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.state = stateName;
+}
+
+async function flushSongbookSettings() {
+  const sequence = ++songbookSettingsSaveSequence;
+  setSongbookSettingsStatus("Shranjujem ...", "saving");
+  clearTimeout(remoteSaveTimer);
+  try {
+    const savedOnline = await saveStateToServer();
+    if (sequence === songbookSettingsSaveSequence) {
+      setSongbookSettingsStatus(savedOnline ? "Shranjeno." : "Shranjeno v tej napravi.", "saved");
+    }
+    return true;
+  } catch (error) {
+    if (sequence === songbookSettingsSaveSequence) {
+      setSongbookSettingsStatus("Lokalno je shranjeno, spletno shranjevanje ni uspelo. Poskusi znova.", "error");
+    }
+    console.error(error);
+    return false;
+  }
+}
+
+async function saveSongbookCategoriesFromEditor() {
+  if (!isAdminView) return false;
+  const page = currentSongbookItem();
+  const song = currentDialogSong();
+  if (!page || !song) return false;
+  saveSharedSongSettings(song, {
+    title: song.title,
+    categories: selectedSongbookCategories(),
+    link: song.link || "",
+    known: Boolean(song.known),
+    lyrics: song.lyrics || "",
+  }, currentSongbookPage());
+  persist();
+  renderSongbookPrint();
+  return flushSongbookSettings();
 }
 
 function getChordSongs() {
@@ -4211,7 +4261,10 @@ function wireEvents() {
     persist();
     renderSongbook();
   });
-  $("#songbookEditor").addEventListener("submit", (event) => {
+  $("#songbookMassParts").addEventListener("change", (event) => {
+    if (event.target.matches('input[type="checkbox"]')) void saveSongbookCategoriesFromEditor();
+  });
+  $("#songbookEditor").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isAdminView) return;
     const page = currentSongbookItem();
@@ -4228,15 +4281,19 @@ function wireEvents() {
         return;
       }
     }
+    const saveButton = $("#saveSongbookSettings");
+    saveButton.disabled = true;
     saveSharedSongSettings(song, {
       title,
-      categories: $$("#songbookMassParts input:checked").map((input) => input.value),
+      categories: selectedSongbookCategories(),
       link: $("#songbookLink").value.trim(),
       known: $("#songbookKnown").checked,
       lyrics: $("#songbookLyrics").value,
     }, currentSongbookPage());
     persist();
     renderAll();
+    await flushSongbookSettings();
+    saveButton.disabled = false;
     if (numberChanged) void saveSongbookToSongs({ download: false });
   });
   $("#deleteSongbookPage").addEventListener("click", () => deleteCurrentSongbookPage());

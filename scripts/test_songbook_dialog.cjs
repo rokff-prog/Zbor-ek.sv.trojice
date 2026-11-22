@@ -24,13 +24,14 @@ const makeNode = (key) => {
 const opener = makeNode("opener");
 opener.dataset.songbookOpen = "page-two";
 const body = makeNode("body");
-let writes = 0;
+let writes = 0, remoteWrites = 0;
+let checkedCategories = ["Vstopna"];
 const context = vm.createContext({
   crypto, console, structuredClone, URL, Blob, setTimeout, clearTimeout,
   location: { hostname: "localhost" }, window: {}, wireCanvaConnection() {},
   document: { body, querySelector: makeNode, querySelectorAll: (query) => {
     if (query === "[data-songbook-open]") return [opener];
-    if (query === "#songbookMassParts input:checked") return [{ value: "Vstopna" }];
+    if (query === "#songbookMassParts input:checked") return checkedCategories.map((value) => ({ value }));
     return [];
   } },
   localStorage: { getItem: () => null, setItem() {} },
@@ -41,9 +42,11 @@ vm.runInContext(fs.readFileSync(path.join(root, "song-numbering.js"), "utf8"), c
 vm.runInContext(source.slice(0, source.indexOf('document.addEventListener("zborcek-auth-state"')), context);
 const run = (code) => vm.runInContext(code, context);
 context.recordWrite = () => writes++;
+context.recordRemoteWrite = () => remoteWrites++;
 run(`
   wireMobileTabSwipe = () => {};
   persist = () => recordWrite();
+  saveStateToServer = async () => { recordRemoteWrite(); return true; };
   renderAll = () => renderSongbook();
   state.songs = [{ id: 'song-two', title: 'Testna pesem', page: 2, inBook: true, categories: [], link: '' }];
   state.canvaPages = [{ id: 'page-two', songId: 'song-two', title: 'Testna pesem', page: 2, canvaDbPage: 2, categories: [], copies: 3 }];
@@ -69,6 +72,12 @@ assert.equal(run("state.songs[0].title"), "Spremenjena pesem");
 assert.equal(run("state.canvaPages[0].canvaDbPage"), 2, "Page edits must not change the underlying image identity");
 assert.equal(run("state.canvaPages[0].copies"), 3);
 assert.equal(run("state.songs[0].categories[0]"), "Vstopna");
+checkedCategories = ["Psalm", "Obhajilo"];
+run("saveSongbookCategoriesFromEditor()");
+assert.deepEqual(JSON.parse(JSON.stringify(run("state.songs[0].categories"))), ["Psalm", "Obhajilo"]);
+assert.deepEqual(JSON.parse(JSON.stringify(run("state.canvaPages[0].categories"))), ["Psalm", "Obhajilo"]);
+assert.equal(run("state.songs[0].settingsEditedByUser"), true);
+assert.ok(remoteWrites >= 2, "Checkbox changes immediately start a verified online save");
 assert.equal(dialog.open, true, "Saving keeps the song visible");
 assert.match(makeNode("#songbookDialogTitle").textContent, /2 · Spremenjena pesem/, "Changing PDF position must not renumber a printed song");
 makeNode("#closeSongbookDialog").dispatch("click");
@@ -85,7 +94,7 @@ assert.equal(dialog.open, false, "Backdrop click closes the modal");
 run("isAdminView = false; openSongbookDialog('page-two')");
 assert.equal(dialog.classList.contains("readonly"), true);
 makeNode("#songbookEditor").dispatch("submit", { preventDefault() {} });
-assert.equal(writes, 1, "Public readers cannot save settings");
+assert.equal(writes, 2, "Public readers cannot save settings");
 dialog.close();
 run("openSongbookDialog('missing-id')");
 assert.equal(dialog.open, false);
@@ -99,6 +108,8 @@ assert.doesNotMatch(html, /downloadSongbookPageForUsb|usb-page-hint/, "Song sett
 assert.doesNotMatch(html, /songbookPageNumber/, "PDF source positions are not editable song settings");
 assert.match(html, /id="songbookPrintNumber"/);
 assert.match(html, /id="deleteSongbookPage"/);
+assert.match(html, /id="songbookSettingsStatus"[^>]+role="status"/);
+assert.match(html, /id="saveSongbookSettings"/);
 assert.equal((html.match(/id="songbookEditor"/g) || []).length, 1);
 assert.match(html, /<dialog id="songbookDialog"[^>]+aria-labelledby="songbookDialogTitle"/);
 assert.match(html, /id="closeSongbookDialog"[^>]+aria-label="Zapri pesem"/);
