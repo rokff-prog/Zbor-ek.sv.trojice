@@ -868,8 +868,25 @@ textarea {
   margin-top: 8px;
 }
 
+.mass-song-field { display: block; min-width: 0; }
 .mass-song-field + .mass-song-field { margin-top: 10px; }
-.mass-song-field > span { color: var(--muted); font-size: 12px; }
+.mass-song-field > span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.mass-song-control { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.mass-song-control select { flex: 1 1 auto; min-width: 0; }
+.mass-song-note-button {
+  flex: 0 0 42px;
+  width: 42px;
+  min-height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: white;
+  color: var(--blue);
+  font-size: 19px;
+}
+.mass-song-note-button.has-note { background: #fff1b8; border-color: var(--gold); }
+.mass-song-note-input { width: 100%; min-width: 0; margin-top: 6px; }
+.mass-song-note-input[hidden] { display: none; }
 .mass-add-song {
   width: 34px;
   height: 34px;
@@ -1786,6 +1803,8 @@ body.measuring-mass-program .mass-program-print {
   font-weight: 800;
   text-align: center;
 }
+
+.mass-program-song-note { color: var(--muted); font-size: 0.9em; font-style: italic; }
 
 .songbook-grid {
   display: grid;

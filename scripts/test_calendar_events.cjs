@@ -62,6 +62,10 @@ async function main() {
   const selected = exportEntries([entry("2026-01-02", { selections: { Vstopna: "song" } })])[0];
   assert.equal(selected.title, "Zbor\u010dek - sveta ma\u0161a");
   assert.equal(selected.description, "Vstopna: Pesem");
+  const described = exportEntries([entry("2026-01-02", { selections: { Vstopna: "song" },
+    additionalSelections: { Vstopna: ["second"] }, songNotes: { Vstopna: ["1. in 2. kitica", "Samo refren"] } })])[0];
+  assert.equal(described.description, "Vstopna: Pesem (1. in 2. kitica)\nVstopna: Druga pesem (Samo refren)",
+    "Per-song notes follow the matching song into public and Google calendar descriptions");
 
   const gloria = (date) => entry(date, { selections: { Slava: "song" }, additionalSelections: { Slava: ["second"] }, partLabels: { Slava: "Renamed" } });
   assert.deepEqual(dates(exportEntries([gloria("2026-11-28"), gloria("2026-11-29"), gloria("2026-12-23"), gloria("2026-12-24"), gloria("2026-12-25")])),

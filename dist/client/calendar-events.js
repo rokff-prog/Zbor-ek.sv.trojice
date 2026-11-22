@@ -70,9 +70,13 @@
         const custom = (entry.customParts || []).find((item) => (typeof item === "string" ? item : item?.id) === part);
         const label = typeof entry.partLabels?.[part] === "string" ? entry.partLabels[part]
           : typeof custom === "object" && custom?.label ? custom.label : part;
-        for (const id of ids) {
+        for (const [index, id] of ids.entries()) {
           const song = resolveSong(id);
-          if (song) lines.push(label ? `${label}: ${song.title}` : song.title);
+          if (song) {
+            const note = typeof entry.songNotes?.[part]?.[index] === "string" ? entry.songNotes[part][index].trim() : "";
+            const title = `${song.title}${note ? ` (${note})` : ""}`;
+            lines.push(label ? `${label}: ${title}` : title);
+          }
         }
       }
       const note = typeof entry.note === "string" ? entry.note.trim() : "";

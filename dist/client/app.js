@@ -70,6 +70,7 @@ let remoteStateLoadedForAdmin = false;
 let suppressRemoteSave = false;
 let liveSync = null;
 let liveRenderPending = false;
+const openMassSongNotes = new Set();
 
 const importedChordSheets = {
   "Ves dan vso noč": `E
@@ -924,9 +925,11 @@ function migrateState() {
     address: person.address || "",
   }));
   state.massHistory = Array.isArray(state.massHistory) ? state.massHistory : [];
+  state.mass.songNotes = state.mass.songNotes && typeof state.mass.songNotes === "object" ? state.mass.songNotes : {};
   state.mass.customParts = Array.isArray(state.mass.customParts) ? state.mass.customParts : [];
   state.mass.partOrder = Array.isArray(state.mass.partOrder) ? state.mass.partOrder : [];
   state.massHistory.forEach((entry) => {
+    entry.songNotes = entry.songNotes && typeof entry.songNotes === "object" ? entry.songNotes : {};
     entry.customParts = Array.isArray(entry.customParts) ? entry.customParts : [];
     entry.partOrder = Array.isArray(entry.partOrder) ? entry.partOrder : [];
   });
@@ -970,6 +973,7 @@ function migrateState() {
     state.mass.note = currentMassEntry.note || state.mass.note || "";
     state.mass.selections = { ...currentMassEntry.selections };
     state.mass.additionalSelections = structuredClone(currentMassEntry.additionalSelections || {});
+    state.mass.songNotes = structuredClone(currentMassEntry.songNotes || {});
   }
   if (state.canvaPages?.length) {
     state.canvaPages = state.canvaPages.map((page) => ({
@@ -1587,6 +1591,8 @@ function addMassSongField(part) {
   if (!isAdminView || !state.mass.date || !massPartIds().includes(part) || !isMassPartEnabled(state.mass.date, part)) return;
   state.mass.additionalSelections ||= {};
   state.mass.additionalSelections[part] = [...(state.mass.additionalSelections[part] || []), ""];
+  state.mass.songNotes ||= {};
+  state.mass.songNotes[part] = [...(state.mass.songNotes[part] || []), ""];
   saveMassToHistory();
   persist();
   renderMass();
@@ -1602,6 +1608,8 @@ function addCustomMassPart(suggestedLabel = "") {
   state.mass.selections[id] = "";
   state.mass.additionalSelections ||= {};
   state.mass.additionalSelections[id] = [];
+  state.mass.songNotes ||= {};
+  state.mass.songNotes[id] = [];
   state.mass.partLabels = { ...(state.mass.partLabels || {}), [id]: label };
   saveMassToHistory();
   persist();
@@ -1678,7 +1686,15 @@ function renderMass() {
     while (selectIds.length < (part === "Obhajilo" ? 2 : 1)) selectIds.push("");
     const selects = selectIds.map((selectedId, index) => {
       const select = `<select data-mass-part="${escapeAttr(part)}" data-mass-index="${index}" aria-label="${escapeAttr(part)}${selectIds.length > 1 ? ` · ${index + 1}. pesem` : ""}">${massSongOptions(part, selectedId)}</select>`;
-      return selectIds.length > 1 ? `<label class="mass-song-field"><span>${index + 1}. pesem</span>${select}</label>` : select;
+      const noteKey = `${part}:${index}`;
+      const note = String(state.mass.songNotes?.[part]?.[index] || "");
+      const noteOpen = openMassSongNotes.has(noteKey);
+      const field = `<div class="mass-song-control">
+        ${select}
+        <button class="mass-song-note-button ${note ? "has-note" : ""}" type="button" data-toggle-mass-song-note data-mass-part="${escapeAttr(part)}" data-mass-index="${index}" aria-expanded="${noteOpen}" aria-label="${note ? "Uredi opis pesmi" : "Dodaj opis pesmi"}" title="${note ? "Uredi opis pesmi" : "Dodaj opis pesmi"}">&#9998;</button>
+      </div>
+      <input class="mass-song-note-input" data-mass-song-note data-mass-part="${escapeAttr(part)}" data-mass-index="${index}" type="text" maxlength="160" value="${escapeAttr(note)}" placeholder="Npr. 1. in 2. kitica" aria-label="Opis ob pesmi" ${noteOpen ? "" : "hidden"} />`;
+      return `<div class="mass-song-field">${selectIds.length > 1 ? `<span>${index + 1}. pesem</span>` : ""}${field}</div>`;
     }).join("");
     const moveControls = MASS_PARTS.includes(part) ? "" : `<div class="mass-part-order" aria-label="Premakni del maše">
       <button type="button" data-move-mass-part="first" data-mass-part-id="${escapeAttr(part)}" aria-label="Premakni na začetek" title="Na začetek">&#x21E4;</button>
@@ -1705,7 +1721,12 @@ function hasMassSongs(entry) {
 function massProgramRows(entry = state.mass) {
   return massPartIds(entry).filter((part) => isMassPartEnabled(entry?.date, part))
     .flatMap((part) => [entry?.selections?.[part], ...(entry?.additionalSelections?.[part] || [])]
-    .map((id) => ({ part, label: massPartLabel(entry, part), song: songById(id) }))).filter(({ song }) => song && !song.isCover);
+    .map((id, index) => ({
+      part,
+      label: massPartLabel(entry, part),
+      song: songById(id),
+      note: String(entry?.songNotes?.[part]?.[index] || "").trim(),
+    }))).filter(({ song }) => song && !song.isCover);
 }
 
 function massSongNumber(song) {
@@ -1720,6 +1741,7 @@ function saveMassToHistory() {
     note: state.mass.note || "",
     selections: { ...state.mass.selections },
     additionalSelections: structuredClone(state.mass.additionalSelections || {}),
+    songNotes: structuredClone(state.mass.songNotes || {}),
     partLabels: { ...(state.mass.partLabels || {}) },
     customParts: structuredClone(state.mass.customParts || []),
     partOrder: [...massPartIds(state.mass)],
@@ -1770,6 +1792,7 @@ function loadMassFromHistory(date) {
   state.mass.partLabels = { ...(entry?.partLabels || {}) };
   state.mass.customParts = structuredClone(entry?.customParts || []);
   state.mass.partOrder = [...(entry?.partOrder || [])];
+  state.mass.songNotes = structuredClone(entry?.songNotes || {});
   if (entry) {
     state.mass.note = entry.note || "";
     state.mass.selections = { ...entry.selections };
@@ -1778,6 +1801,7 @@ function loadMassFromHistory(date) {
     state.mass.note = "";
     state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
     state.mass.additionalSelections = {};
+    state.mass.songNotes = {};
     state.mass.customParts = [];
     state.mass.partOrder = [];
   }
@@ -1797,11 +1821,18 @@ function autosaveMassFromForm(event) {
   parts.forEach((part) => {
     if (changedPart && event.target.dataset.massIndex !== undefined) {
       const index = Number(event.target.dataset.massIndex);
+      const previousId = index === 0 ? state.mass.selections[part] : state.mass.additionalSelections[part]?.[index - 1];
       if (index === 0) state.mass.selections[part] = event.target.value;
       else {
         const more = [...(state.mass.additionalSelections[part] || [])];
         more[index - 1] = event.target.value;
         state.mass.additionalSelections[part] = more;
+      }
+      if (previousId !== event.target.value) {
+        state.mass.songNotes ||= {};
+        const notes = [...(state.mass.songNotes[part] || [])];
+        notes[index] = "";
+        state.mass.songNotes[part] = notes;
       }
       return;
     }
@@ -1817,6 +1848,42 @@ function autosaveMassFromForm(event) {
   renderMassCalendar();
   renderUpcomingMasses();
   renderPrint();
+}
+
+function saveMassSongNote(input) {
+  if (!isAdminView || !state.mass.date) return;
+  const part = input.dataset.massPart;
+  const index = Number(input.dataset.massIndex || 0);
+  if (!massPartIds().includes(part) || !Number.isInteger(index) || index < 0) return;
+  state.mass.songNotes ||= {};
+  const notes = [...(state.mass.songNotes[part] || [])];
+  notes[index] = input.value.slice(0, 160);
+  state.mass.songNotes[part] = notes;
+  const button = input.previousElementSibling?.querySelector?.("[data-toggle-mass-song-note]");
+  const hasNote = Boolean(notes[index].trim());
+  button?.classList.toggle("has-note", hasNote);
+  button?.setAttribute("aria-label", hasNote ? "Uredi opis pesmi" : "Dodaj opis pesmi");
+  button?.setAttribute("title", hasNote ? "Uredi opis pesmi" : "Dodaj opis pesmi");
+  saveMassToHistory();
+  persist();
+  renderUpcomingMasses();
+  renderCalendar();
+  renderPrint();
+}
+
+function toggleMassSongNote(button) {
+  const part = button.dataset.massPart;
+  const index = Number(button.dataset.massIndex || 0);
+  const input = button.closest(".mass-song-field")?.querySelector(`[data-mass-song-note][data-mass-index="${index}"]`);
+  if (!input) return;
+  const key = `${part}:${index}`;
+  const opening = input.hidden;
+  input.hidden = !opening;
+  button.setAttribute("aria-expanded", String(opening));
+  if (opening) {
+    openMassSongNotes.add(key);
+    input.focus();
+  } else openMassSongNotes.delete(key);
 }
 
 function renderSongs() {
@@ -3078,7 +3145,7 @@ function renderPrint() {
     ${selected.map((item) => `
       <section class="print-song">
         <p class="muted">${escapeHtml(item.label)}</p>
-        <h2>${escapeHtml(item.song.title)}</h2>
+        <h2>${escapeHtml(item.song.title)}${item.note ? ` <small>(${escapeHtml(item.note)})</small>` : ""}</h2>
         ${item.song.page ? `<p>Pesmarica: stran ${escapeHtml(String(item.song.page))}</p>` : ""}
         ${item.song.canvaDesignUrl ? `<p><a href="${escapeAttr(item.song.canvaDesignUrl)}">Canva pesmarica</a></p>` : ""}
         <pre>${escapeHtml(mode === "guitar" ? item.song.inlineChords || item.song.chords || item.song.lyrics || "" : item.song.lyrics || item.song.title)}</pre>
@@ -3102,7 +3169,7 @@ function massProgramCopyHtml() {
     <table class="mass-program-table">
       <colgroup><col class="mass-program-part" /><col class="mass-program-number" /><col /></colgroup>
       <thead><tr><th scope="col">Del maše</th><th scope="col">Št.</th><th scope="col">Pesem</th></tr></thead>
-      <tbody>${rows.map(({ label, song }) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(massSongNumber(song))}</td><td>${escapeHtml(song.title)}</td></tr>`).join("")}</tbody>
+      <tbody>${rows.map(({ label, song, note }) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(massSongNumber(song))}</td><td>${escapeHtml(song.title)}${note ? `<span class="mass-program-song-note"> · ${escapeHtml(note)}</span>` : ""}</td></tr>`).join("")}</tbody>
     </table>
   </div>`;
 }
@@ -3157,7 +3224,10 @@ function calendarEventsFromMassHistory() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((entry) => {
       const songs = massProgramRows(entry)
-        .map((item) => item.label ? `${item.label}: ${item.song.title}` : item.song.title);
+        .map((item) => {
+          const title = `${item.song.title}${item.note ? ` (${item.note})` : ""}`;
+          return item.label ? `${item.label}: ${title}` : title;
+        });
       return {
         date: entry.date,
         title: entry.note ? `Zborcek - ${entry.note}` : "Zborcek - sveta masa",
@@ -3758,6 +3828,7 @@ function wireEvents() {
     else {
       state.mass.selections = Object.fromEntries(MASS_PARTS.map((part) => [part, ""]));
       state.mass.additionalSelections = {};
+      state.mass.songNotes = {};
       state.mass.partLabels = {};
       state.mass.customParts = [];
       state.mass.partOrder = [];
@@ -3773,10 +3844,15 @@ function wireEvents() {
   $("#massSlots").addEventListener("change", (event) => {
     if (event.target.matches("[data-mass-part]")) autosaveMassFromForm(event);
   });
+  $("#massSlots").addEventListener("input", (event) => {
+    if (event.target.matches("[data-mass-song-note]")) saveMassSongNote(event.target);
+  });
   $("#massSlots").addEventListener("click", (event) => {
     const addSong = event.target.closest("[data-add-mass-song]");
     const move = event.target.closest("[data-move-mass-part]");
-    if (addSong) addMassSongField(addSong.dataset.addMassSong);
+    const noteButton = event.target.closest("[data-toggle-mass-song-note]");
+    if (noteButton) toggleMassSongNote(noteButton);
+    else if (addSong) addMassSongField(addSong.dataset.addMassSong);
     else if (move) moveCustomMassPart(move.dataset.massPartId, move.dataset.moveMassPart);
     else if (event.target.closest("[data-add-mass-part]")) openCustomMassPartDialog();
   });
@@ -4262,6 +4338,7 @@ function applyLiveState(remote, isPublic) {
     state.mass.note = entry?.note || "";
     state.mass.selections = { ...(entry?.selections || Object.fromEntries(MASS_PARTS.map((part) => [part, ""]))) };
     state.mass.additionalSelections = structuredClone(entry?.additionalSelections || {});
+    state.mass.songNotes = structuredClone(entry?.songNotes || {});
     state.mass.partLabels = { ...(entry?.partLabels || {}) };
     state.mass.customParts = structuredClone(entry?.customParts || []);
     state.mass.partOrder = [...(entry?.partOrder || [])];
