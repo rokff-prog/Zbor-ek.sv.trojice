@@ -64,8 +64,8 @@ async function main() {
   assert.equal(selected.description, "Vstopna: Pesem");
 
   const gloria = (date) => entry(date, { selections: { Slava: "song" }, additionalSelections: { Slava: ["second"] }, partLabels: { Slava: "Renamed" } });
-  assert.deepEqual(dates(exportEntries([gloria("2026-11-28"), gloria("2026-11-29"), gloria("2026-12-24"), gloria("2026-12-25")])),
-    ["2026-11-28", "2026-12-25"], "Advent Gloria omission follows the first Sunday on/after November 27");
+  assert.deepEqual(dates(exportEntries([gloria("2026-11-28"), gloria("2026-11-29"), gloria("2026-12-23"), gloria("2026-12-24"), gloria("2026-12-25")])),
+    ["2026-11-28", "2026-12-24", "2026-12-25"], "Advent Gloria omission ends before Christmas Eve");
   assert.deepEqual(dates(exportEntries([gloria("2027-11-27"), gloria("2027-11-28"), gloria("2028-12-02"), gloria("2028-12-03")])),
     ["2027-11-27", "2028-12-02"]);
   assert.equal(exportEntries([{ ...gloria("2026-12-06"), note: "Advent" }])[0].description, "");

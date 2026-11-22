@@ -1529,7 +1529,7 @@ function isAdventDate(date) {
   const year = date.slice(0, 4);
   const start = new Date(`${year}-11-27T12:00:00Z`);
   start.setUTCDate(27 + (7 - start.getUTCDay()) % 7);
-  return date >= start.toISOString().slice(0, 10) && date < `${year}-12-25`;
+  return date >= start.toISOString().slice(0, 10) && date < `${year}-12-24`;
 }
 
 function isMassPartEnabled(date, part) {

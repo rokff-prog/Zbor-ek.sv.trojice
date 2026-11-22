@@ -62,6 +62,9 @@ const disabled = { dataset: { massIndex: '0' }, disabled: true, innerHTML: 'disa
 selects.set('Slava', [disabled]);
 run('refreshMassPartSongOptions("Slava")');
 assert.equal(disabled.innerHTML, 'disabled-options', "The existing disabled Advent Gloria is not replaced");
+assert.equal(run('isMassPartEnabled("2026-12-23", "Slava")'), false, "Gloria remains disabled through December 23");
+assert.equal(run('isMassPartEnabled("2026-12-24", "Slava")'), true, "Gloria is available on Christmas Eve");
+assert.equal(run('isMassPartEnabled("2026-12-25", "Slava")'), true, "Gloria remains available on Christmas Day");
 assert.equal(run('state.songs[0].categories.join(",")'), 'Vstopna');
 assert.equal(run('state.songs[0].printNumber'), 9);
 console.log('Mass song choices: renamed/empty parts show all songs, immediate option refresh, ordinary/restored names keep category filtering, selections/both Communion fields/date isolation/order/numbers and Advent disablement preserved OK. Browser UI not exercised.');

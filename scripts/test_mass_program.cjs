@@ -127,7 +127,7 @@ for (const [year, startDate] of [[2022, '2022-11-27'], [2023, '2023-12-03'], [20
   before.setUTCDate(before.getUTCDate() - 1);
   assert.equal(run(`isAdventDate('${before.toISOString().slice(0, 10)}')`), false);
   assert.equal(run(`isAdventDate('${startDate}')`), true);
-  assert.equal(run(`isAdventDate('${year}-12-24')`), true);
+  assert.equal(run(`isAdventDate('${year}-12-24')`), false);
   assert.equal(run(`isAdventDate('${year}-12-25')`), false);
 }
 for (const value of ['', 'invalid', '2026-11-31', '2026-02-29']) assert.equal(run(`isAdventDate('${value}')`), false);

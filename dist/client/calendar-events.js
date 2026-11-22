@@ -25,7 +25,7 @@
     const year = date.slice(0, 4);
     const start = new Date(`${year}-11-27T12:00:00Z`);
     start.setUTCDate(27 + (7 - start.getUTCDay()) % 7);
-    return date >= start.toISOString().slice(0, 10) && date < `${year}-12-25`;
+    return date >= start.toISOString().slice(0, 10) && date < `${year}-12-24`;
   }
 
   function eventsFromState(state, now = new Date()) {
@@ -58,11 +58,18 @@
     for (const entry of Array.isArray(state?.massHistory) ? state.massHistory : []) {
       if (!entry || !validDate(entry.date) || entry.date < today || events.has(entry.date)) continue;
       const lines = [];
-      for (const part of PARTS) {
+      const customParts = (Array.isArray(entry.customParts) ? entry.customParts : [])
+        .map((item) => typeof item === "string" ? item : item?.id)
+        .filter((id) => typeof id === "string" && id && !PARTS.includes(id));
+      const availableParts = [...PARTS, ...new Set(customParts)];
+      const orderedParts = (Array.isArray(entry.partOrder) ? entry.partOrder : []).filter((id) => availableParts.includes(id));
+      for (const part of [...orderedParts, ...availableParts.filter((id) => !orderedParts.includes(id))]) {
         if (part === "Slava" && isAdvent(entry.date)) continue;
         const additional = entry.additionalSelections?.[part];
         const ids = [entry.selections?.[part], ...(Array.isArray(additional) ? additional : [])];
-        const label = typeof entry.partLabels?.[part] === "string" ? entry.partLabels[part] : part;
+        const custom = (entry.customParts || []).find((item) => (typeof item === "string" ? item : item?.id) === part);
+        const label = typeof entry.partLabels?.[part] === "string" ? entry.partLabels[part]
+          : typeof custom === "object" && custom?.label ? custom.label : part;
         for (const id of ids) {
           const song = resolveSong(id);
           if (song) lines.push(label ? `${label}: ${song.title}` : song.title);
