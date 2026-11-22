@@ -98,6 +98,11 @@ textarea {
 
 .sidebar {
   min-height: 100vh;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  overflow-y: auto;
   padding: 24px 18px;
   background:
     radial-gradient(circle at 50% 10%, rgba(255, 199, 67, 0.28), transparent 34%),
@@ -2363,9 +2368,11 @@ button.calendar-event:focus-visible { border-color: var(--green); }
 
   .sidebar {
     min-height: auto;
+    height: auto;
     position: sticky;
     top: 0;
     z-index: 20;
+    overflow-y: visible;
     gap: 9px;
     padding: 10px 12px 8px;
     box-shadow: 0 4px 18px rgba(0, 45, 66, 0.2);

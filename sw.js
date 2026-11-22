@@ -1,10 +1,10 @@
-const CACHE_NAME = "zborcek-app-v59";
+const CACHE_NAME = "zborcek-app-v60";
 const BIRTHDAY_CACHE = "zborcek-private-birthdays-v1";
 const BIRTHDAY_DATA_URL = new URL("./__birthday-data", self.registration.scope).href;
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20261122-song-settings-save",
+  "./styles.css?v=20261122-fixed-desktop-menu",
   "./auth-config.js?v=20260915-public",
   "./auth.js?v=20261115-fast-start",
   "./song-catalog.js?v=20261122-zbudi-betlehem",
