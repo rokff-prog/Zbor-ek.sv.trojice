@@ -109,7 +109,8 @@ assert.doesNotMatch(html, /songbookPageNumber/, "PDF source positions are not ed
 assert.match(html, /id="songbookPrintNumber"/);
 assert.match(html, /id="deleteSongbookPage"/);
 assert.match(html, /id="songbookSettingsStatus"[^>]+role="status"/);
-assert.match(html, /id="saveSongbookSettings"/);
+assert.doesNotMatch(html, /id="saveSongbookSettings"/, "Automatic saving does not need a save button");
+assert.match(source, /scheduleSongbookSettingsSave/);
 assert.equal((html.match(/id="songbookEditor"/g) || []).length, 1);
 assert.match(html, /<dialog id="songbookDialog"[^>]+aria-labelledby="songbookDialogTitle"/);
 assert.match(html, /id="closeSongbookDialog"[^>]+aria-label="Zapri pesem"/);
