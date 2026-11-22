@@ -2412,14 +2412,42 @@ async function flushSongbookSettings() {
   setSongbookSettingsStatus("Shranjujem ...", "saving");
   clearTimeout(remoteSaveTimer);
   try {
-    const savedOnline = await saveStateToServer();
-    if (sequence === songbookSettingsSaveSequence) {
-      setSongbookSettingsStatus(savedOnline ? "Shranjeno." : "Shranjeno v tej napravi.", "saved");
+    const song = currentDialogSong();
+    let savedOnline = false;
+    if (liveSync && song && isAdminView && !IS_GITHUB_PUBLIC) {
+      const canonical = songById(song.libraryCanonicalId) || song;
+      const linkedPages = new Set(songbookPagesForSong(canonical));
+      const pageIds = (state.canvaPages || [])
+        .filter((page) => page.id === selectedSongbookPageId || linkedPages.has(Number(page.page)))
+        .map((page) => page.id);
+      const response = await apiFetch("/api/song-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          songId: canonical.id,
+          title: canonical.title || "",
+          categories: canonical.categories || [],
+          link: canonical.link || "",
+          known: Boolean(canonical.known),
+          lyrics: canonical.lyrics || "",
+          pageIds,
+          metadataVersion: SONGBOOK_METADATA_VERSION,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Spletno shranjevanje ni uspelo (${response.status}).`);
+      savedOnline = Boolean(result.saved);
+      await liveSync.refresh(true);
+    } else {
+      savedOnline = await saveStateToServer();
     }
-    return true;
+    if (sequence === songbookSettingsSaveSequence) {
+      setSongbookSettingsStatus(savedOnline ? "Shranjeno na spletu." : "Sprememba čaka na spletno povezavo.", savedOnline ? "saved" : "saving");
+    }
+    return savedOnline;
   } catch (error) {
     if (sequence === songbookSettingsSaveSequence) {
-      setSongbookSettingsStatus("Lokalno je shranjeno, spletno shranjevanje ni uspelo. Poskusi znova.", "error");
+      setSongbookSettingsStatus("Ni še shranjeno na spletu. Preveri povezavo in pritisni Shrani nastavitve.", "error");
     }
     console.error(error);
     return false;

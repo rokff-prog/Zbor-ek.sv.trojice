@@ -74,6 +74,19 @@ async function main() {
   assert.equal((await post([{ path: ["__proto__", "polluted"], beforeMissing: true, value: true }])).status, 400);
   assert.equal((await post([{ path: ["syncMeta"], beforeMissing: true, value: {} }])).status, 400);
   assert.equal((await post([{ path: ["mass", "date"], beforeMissing: true, value: "bad" }])).status, 400);
+  stored.songs = [{ id: "song-1", title: "Old", categories: [], link: "", known: false, lyrics: "" }];
+  stored.canvaPages = [{ id: "page-1", songId: "song-1", title: "Old", categories: [] }];
+  revision++;
+  const songSettings = { songId: "song-1", title: "New", categories: ["Vstopna", "Zaključek"], link: "https://example.test",
+    known: true, lyrics: "Besedilo", pageIds: ["page-1"], metadataVersion: "fixture" };
+  collision = () => { stored.massHistory[0].note = "Concurrent song save"; };
+  const songResponse = await request("/api/song-settings", { method: "POST", headers: { Cookie, Origin: "https://choir.test", "Content-Type": "application/json" }, body: JSON.stringify(songSettings) });
+  assert.equal(songResponse.status, 200, "Song settings retry after a concurrent write");
+  assert.deepEqual(stored.songs[0].categories, ["Vstopna", "Zaključek"]);
+  assert.deepEqual(stored.canvaPages[0].categories, ["Vstopna", "Zaključek"]);
+  assert.equal(stored.massHistory[0].note, "Concurrent song save", "Song save preserves unrelated concurrent data");
+  assert.equal((await request("/api/song-settings", { method: "POST", body: JSON.stringify(songSettings) })).status, 401);
+  assert.equal((await request("/api/song-settings", { method: "POST", headers: { Cookie, Origin: "https://other.test" }, body: JSON.stringify(songSettings) })).status, 403);
   assert.equal(writes > 0, true);
   await clients();
   env.PARTICIPANTS_IMPORT_JSON = JSON.stringify([{ sheetRow: 999, name: "Protected import fixture" }]);
