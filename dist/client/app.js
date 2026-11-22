@@ -2872,7 +2872,7 @@ function renderChordLineRow(lineTokens, editable = false) {
     .filter((token) => token.chord)
     .map((token) => editable ? `
       <button class="token-chord editable-chord" type="button" draggable="true" data-drag-chord="${token.index}" style="left: ${lineTokens.indexOf(token)}ch" title="Povleci akord na drugo črko">
-        ${escapeHtml(token.chord)}<span data-chord-action="remove" data-token-index="${token.index}" title="Odstrani akord">×</span>
+        ${escapeHtml(token.chord)}${activeChordInputIndex === token.index ? `<span data-chord-action="remove" data-token-index="${token.index}" title="Odstrani akord">×</span>` : ""}
       </button>
     ` : `<span class="token-chord" style="left: ${lineTokens.indexOf(token)}ch">${escapeHtml(token.chord)}</span>`)
     .join("");
@@ -4061,6 +4061,29 @@ function wireEvents() {
   });
 
   $("#chordSearch").addEventListener("input", renderChords);
+  let scrollFrame = null;
+  let scrollTime = null;
+  const scrollChords = (time) => {
+    if (!$("#chordAutoScroll").checked || !$("#chordEditorDialog").open) {
+      $("#chordAutoScroll").checked = false;
+      scrollTime = null;
+      return;
+    }
+    const box = $("#inlineChordEditor");
+    if (scrollTime !== null) box.scrollTop += (time - scrollTime) * Number($("#chordScrollSpeed").value) / 1000;
+    scrollTime = time;
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 1) {
+      $("#chordAutoScroll").checked = false;
+      scrollTime = null;
+      return;
+    }
+    scrollFrame = requestAnimationFrame(scrollChords);
+  };
+  $("#chordAutoScroll").addEventListener("change", () => {
+    cancelAnimationFrame(scrollFrame);
+    scrollTime = null;
+    if ($("#chordAutoScroll").checked) scrollFrame = requestAnimationFrame(scrollChords);
+  });
   $("#openSongChords").addEventListener("click", () => {
     const song = currentDialogSong();
     if (!isAdminView || !song || song.isCover) return;
@@ -4103,6 +4126,14 @@ function wireEvents() {
     renderAll();
   });
   $("#chordText").addEventListener("input", renderInlineChordEditor);
+  $("#inlineChordEditor").addEventListener("dblclick", (event) => {
+    const chord = event.target.closest("[data-drag-chord]");
+    if (!chord) return;
+    event.preventDefault();
+    activeChordInputIndex = Number(chord.dataset.dragChord);
+    renderInlineChordEditor();
+    $("#inlineChordEditor [data-inline-chord-input]")?.focus();
+  });
   $("#chordTitle").addEventListener("input", renderInlineChordEditor);
   $("#inlineChordEditor").addEventListener("click", (event) => {
     if (event.target.closest("[data-inline-chord-input]")) return;

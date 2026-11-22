@@ -1007,6 +1007,9 @@ body.chord-dialog-open { overflow: hidden; }
 }
 
 .chord-editor-preview .editable-chord-sheet {
+  height: auto;
+  max-height: none;
+  min-height: 100%;
   overflow: visible;
   box-shadow: none;
 }
@@ -1558,9 +1561,10 @@ body.measuring-chords .chord-print { display: block; }
 }
 
 .editable-chord-body .inline-chord-line {
-  min-height: 3.1em;
-  margin: 8px 0 12px;
-  padding-top: 36px;
+  display: block;
+  min-height: 2.5em;
+  margin: 0 0 4px;
+  padding-top: 26px;
 }
 
 .empty-chord-slot {
