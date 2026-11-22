@@ -4063,6 +4063,7 @@ function wireEvents() {
   $("#chordSearch").addEventListener("input", renderChords);
   let scrollFrame = null;
   let scrollTime = null;
+  let scrollRemainder = 0;
   const scrollChords = (time) => {
     if (!$("#chordAutoScroll").checked || !$("#chordEditorDialog").open) {
       $("#chordAutoScroll").checked = false;
@@ -4070,7 +4071,14 @@ function wireEvents() {
       return;
     }
     const box = $("#inlineChordEditor");
-    if (scrollTime !== null) box.scrollTop += (time - scrollTime) * Number($("#chordScrollSpeed").value) / 1000;
+    if (scrollTime !== null) {
+      scrollRemainder += Math.min(100, time - scrollTime) * Number($("#chordScrollSpeed").value) / 1000;
+      const pixels = Math.floor(scrollRemainder);
+      if (pixels > 0) {
+        box.scrollTop += pixels;
+        scrollRemainder -= pixels;
+      }
+    }
     scrollTime = time;
     if (box.scrollTop + box.clientHeight >= box.scrollHeight - 1) {
       $("#chordAutoScroll").checked = false;
@@ -4082,6 +4090,7 @@ function wireEvents() {
   $("#chordAutoScroll").addEventListener("change", () => {
     cancelAnimationFrame(scrollFrame);
     scrollTime = null;
+    scrollRemainder = 0;
     if ($("#chordAutoScroll").checked) scrollFrame = requestAnimationFrame(scrollChords);
   });
   $("#openSongChords").addEventListener("click", () => {
