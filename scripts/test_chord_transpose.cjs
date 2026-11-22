@@ -39,6 +39,14 @@ for (const steps of [-24, -12, 0, 12, 24, NaN, 0.5]) assert.equal(transpose("[Db
 assert.equal(transpose("A, a, E, e; v veri, čaka in žari. Hvala!", 1), "A, a, E, e; v veri, čaka in žari. Hvala!");
 
 const catalog = run("window.ZBORCEK_SONG_CATALOG");
+const betlehem = catalog.chordCorrections.find((song) => song.title === "Zbudi se, Betlehem");
+assert.ok(betlehem, "Zbudi se, Betlehem is included in the chord catalog");
+assert.equal((betlehem.inlineChords.match(/\(2x\)/g) || []).length, 4);
+assert.match(betlehem.inlineChords, /Zbudi \[C\]se, Betleh\[F\]em!/);
+assert.match(betlehem.inlineChords, /Kralj pred \[C\]vrati se mu \[F\]di!\[f\]/);
+assert.match(betlehem.inlineChords, /\[a\]Zakaj ni \[d7\]vid\[G7\]eti lu\[C\]či\?/);
+assert.match(betlehem.inlineChords, /\[d\]Nocoj se z\[e\]ate \[F\]bo \(je\) ro\[G\]dil/);
+assert.match(betlehem.inlineChords, /\[a\]da gosta \[d7\]boš sp\[G7\]rejel l\[C\]epo\?/);
 let tested = 0;
 for (const song of [...catalog.songs, ...catalog.chordCorrections]) {
   const text = song.inlineChords || song.chords;

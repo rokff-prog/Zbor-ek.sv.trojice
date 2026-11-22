@@ -1,6 +1,12 @@
 window.ZBORCEK_SONG_CATALOG = {
-  "version": "2026-11-19-library-5",
+  "version": "2026-11-22-library-6",
   "chordCorrections": [
+    {
+      "version": "jubilate-350-2026-11-22-v1",
+      "title": "Zbudi se, Betlehem",
+      "link": "https://jubilate.donbosko.si/song/350",
+      "inlineChords": "Zbudi [C]se, Betleh[F]em!\nDuri [C]svoje od[G7]pri!\nKralj pred [C]vrati se mu [F]di![f]\nZbudi [C]se[G7], moj Betleh[C]em![(F C)] (2x)\n\n[a]Zakaj vse [d7]mesto [G7]mirno [C]spi?\n[a]Zakaj ni [d7]vid[G7]eti lu[C]či?\n[d]Na vrata t[e]rka [F]naš Gos[G]pod,\n[d]med nas po[e]šilja [F]ga sam [G]Bog!\n\nZbudi [C]se, Betleh[F]em!\nDuri [C]svoje od[G7]pri!\nKralj pred [C]vrati se mu [F]di![f]\nZbudi [C]se[G7], moj Betleh[C]em![(F C)] (2x)\n\n[a]Si mar p[d7]ripravil [G7]se [C]nocoj,\n[a]da v srcu [d7]bo Go[G7]spod s [C]Teboj?\n[d]Nocoj se z[e]ate [F]bo (je) ro[G]dil,\n[d]življenje T[e]voje s[F]prem[G]enil!\n\nZbudi [C]se, Betleh[F]em!\nDuri [C]svoje od[G7]pri!\nKralj pred [C]vrati se mu [F]di![f]\nZbudi [C]se[G7], moj Betleh[C]em![(F C)] (2x)\n\n[a]Si že p[d7]ripravil [G7]se na [C]to,\n[a]da gosta [d7]boš sp[G7]rejel l[C]epo?\n[d]Naj miza Tv[e]oje [F]bo s[G]rce,\n[d]priprav[e]ljeno sp[F]rejeti [G]vse!\n\nZbudi [C]se, Betleh[F]em!\nDuri [C]svoje od[G7]pri!\nKralj pred [C]vrati se mu [F]di![f]\nZbudi [C]se[G7], moj Betleh[C]em![(F C)] (2x)"
+    },
     {
       "version": "user-image-angelcek-varuh-moj-2026-11-19-v2",
       "title": "Angelček varuh moj",
@@ -1056,6 +1062,14 @@ window.ZBORCEK_SONG_CATALOG = {
       "categories": ["Zaključek"],
       "known": false,
       "link": ""
+    },
+    {
+      "key": "zbudi-se-betlehem",
+      "title": "Zbudi se, Betlehem",
+      "aliases": ["Zbudi se Betlehem"],
+      "categories": ["Božične"],
+      "known": false,
+      "link": "https://jubilate.donbosko.si/song/350"
     },
     {
       "key": "pridi-sveti-miklavz",
