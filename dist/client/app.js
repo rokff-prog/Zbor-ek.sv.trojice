@@ -2111,7 +2111,7 @@ function renderSongbookLyrics(song) {
   return `<pre>${escapeHtml(lines.join("\n"))}</pre>`;
 }
 
-function renderCanvaPage(song) {
+function renderCanvaPage(song, forPrint = false) {
   const page = escapeHtml(String(song.canvaPage || song.page || "?"));
   const pageNumber = Number(song.canvaDbPage || song.canvaPage || song.page || 0);
   const image = canvaPageImages.get(pageNumber) || song.canvaImage || "";
@@ -2129,7 +2129,7 @@ function renderCanvaPage(song) {
 
   return `
     <div class="canva-page-frame">
-      <img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="lazy" onerror="this.parentElement.classList.add('missing'); this.remove();" />
+      <img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${forPrint ? "eager" : "lazy"}" onerror="this.parentElement.classList.add('missing'); this.remove();" />
       ${fallback}
     </div>
   `;
@@ -2324,7 +2324,7 @@ function renderSongbookPrint() {
       ${sheet.map((song) => `
         <div class="songbook-print-page">
           <span class="songbook-print-number">${escapeHtml(numberForSongbookItem(song))}</span>
-          ${renderCanvaPage(song)}
+          ${renderCanvaPage(song, true)}
         </div>
       `).join("")}
     </section>
@@ -4395,9 +4395,22 @@ function wireEvents() {
     void saveSongbookEditorSettings();
   });
   $("#deleteSongbookPage").addEventListener("click", () => deleteCurrentSongbookPage());
-  $("#printSongbook").addEventListener("click", () => {
-    renderSongbookPrint();
-    printInMode("printing-songbook", "landscape");
+  $("#printSongbook").addEventListener("click", async () => {
+    const button = $("#printSongbook");
+    button.disabled = true;
+    try {
+      await loadCanvaPageImages();
+      renderSongbookPrint();
+      const images = $$("#songbookPrint img");
+      if (!images.length) throw new Error("Izberi vsaj eno pesem za tisk.");
+      await Promise.all(images.map((image) => image.decode()));
+      if (images.some((image) => !image.isConnected || !image.naturalWidth)) throw new Error("Slike pesmi niso naložene. Osveži aplikacijo in poskusi znova.");
+      printInMode("printing-songbook", "landscape");
+    } catch (error) {
+      window.alert(`Tiska ni mogoče pripraviti: ${error.message}`);
+    } finally {
+      button.disabled = false;
+    }
   });
   $("#songbookManualImport").addEventListener("click", () => $("#importCanvaPdf").click());
   $("#importCanvaPdf").addEventListener("change", async (event) => {
