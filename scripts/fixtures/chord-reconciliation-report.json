@@ -1,0 +1,493 @@
+[
+  {
+    "title": "Ves dan vso noč",
+    "pages": [
+      [
+        1,
+        1
+      ]
+    ],
+    "referencePages": [
+      8
+    ],
+    "unmapped": [],
+    "sourceChordCount": 30,
+    "outputChordCount": 30
+  },
+  {
+    "title": "On nosi ves svet",
+    "pages": [
+      [
+        2,
+        1
+      ],
+      [
+        2,
+        2
+      ]
+    ],
+    "referencePages": [
+      5,
+      6
+    ],
+    "unmapped": [],
+    "sourceChordCount": 50,
+    "outputChordCount": 50
+  },
+  {
+    "title": "Aleluja, naše veselje",
+    "pages": [
+      [
+        3,
+        1
+      ]
+    ],
+    "referencePages": [
+      2
+    ],
+    "unmapped": [],
+    "sourceChordCount": 43,
+    "outputChordCount": 43
+  },
+  {
+    "title": "Hozana (Oče tebi izročam vse)",
+    "pages": [
+      [
+        3,
+        2
+      ]
+    ],
+    "referencePages": [],
+    "unmapped": [],
+    "sourceChordCount": 32,
+    "outputChordCount": 32
+  },
+  {
+    "title": "Aleluja (Hallelujah)",
+    "pages": [
+      [
+        4,
+        1
+      ],
+      [
+        4,
+        2
+      ]
+    ],
+    "referencePages": [],
+    "unmapped": [],
+    "sourceChordCount": 88,
+    "outputChordCount": 87
+  },
+  {
+    "title": "Dal si čisto mi srce",
+    "pages": [
+      [
+        5,
+        1
+      ],
+      [
+        5,
+        2
+      ]
+    ],
+    "referencePages": [],
+    "unmapped": [],
+    "sourceChordCount": 79,
+    "outputChordCount": 79
+  },
+  {
+    "title": "Hozana (Svet si ti naš Gospod)",
+    "pages": [
+      [
+        6,
+        1
+      ]
+    ],
+    "referencePages": [
+      4
+    ],
+    "unmapped": [],
+    "sourceChordCount": 23,
+    "outputChordCount": 41
+  },
+  {
+    "title": "Darujem ti ljubezen",
+    "pages": [
+      [
+        6,
+        2
+      ]
+    ],
+    "referencePages": [
+      3
+    ],
+    "unmapped": [],
+    "sourceChordCount": 51,
+    "outputChordCount": 51
+  },
+  {
+    "title": "Pesem vesela naj gospoda slavi",
+    "pages": [
+      [
+        7,
+        1
+      ],
+      [
+        7,
+        2
+      ]
+    ],
+    "referencePages": [
+      7
+    ],
+    "unmapped": [],
+    "sourceChordCount": 45,
+    "outputChordCount": 45
+  },
+  {
+    "title": "Če imate usta",
+    "pages": [
+      [
+        8,
+        1
+      ]
+    ],
+    "referencePages": [
+      10
+    ],
+    "unmapped": [],
+    "sourceChordCount": 64,
+    "outputChordCount": 80
+  },
+  {
+    "title": "Povej naprej!",
+    "pages": [
+      [
+        8,
+        2
+      ]
+    ],
+    "referencePages": [
+      9
+    ],
+    "unmapped": [],
+    "sourceChordCount": 68,
+    "outputChordCount": 68
+  },
+  {
+    "title": "Sem jaz (družinica)",
+    "pages": [
+      [
+        9,
+        1
+      ],
+      [
+        9,
+        2
+      ]
+    ],
+    "referencePages": [
+      11
+    ],
+    "unmapped": [],
+    "sourceChordCount": 51,
+    "outputChordCount": 69
+  },
+  {
+    "title": "Gospod usmili se",
+    "pages": [
+      [
+        10,
+        1
+      ]
+    ],
+    "referencePages": [
+      12
+    ],
+    "unmapped": [],
+    "sourceChordCount": 12,
+    "outputChordCount": 12
+  },
+  {
+    "title": "Jagnje Božje (Jemec)",
+    "pages": [
+      [
+        10,
+        2
+      ]
+    ],
+    "referencePages": [
+      13
+    ],
+    "unmapped": [],
+    "sourceChordCount": 49,
+    "outputChordCount": 49
+  },
+  {
+    "title": "Vsa ljudstva ploskajte",
+    "pages": [
+      [
+        11,
+        1
+      ]
+    ],
+    "referencePages": [
+      14
+    ],
+    "unmapped": [],
+    "sourceChordCount": 50,
+    "outputChordCount": 45
+  },
+  {
+    "title": "Poslušajte vsi ljudje",
+    "pages": [
+      [
+        12,
+        1
+      ]
+    ],
+    "referencePages": [
+      15
+    ],
+    "unmapped": [],
+    "sourceChordCount": 54,
+    "outputChordCount": 54
+  },
+  {
+    "title": "Glej zvezdice Božje",
+    "pages": [
+      [
+        12,
+        2
+      ]
+    ],
+    "referencePages": [
+      16
+    ],
+    "unmapped": [],
+    "sourceChordCount": 30,
+    "outputChordCount": 30
+  },
+  {
+    "title": "Tam stoji pa hlevček",
+    "pages": [
+      [
+        13,
+        1
+      ]
+    ],
+    "referencePages": [
+      17
+    ],
+    "unmapped": [],
+    "sourceChordCount": 4,
+    "outputChordCount": 7
+  },
+  {
+    "title": "Kaj se vam zdi, pastirci vi",
+    "pages": [
+      [
+        14,
+        1
+      ]
+    ],
+    "referencePages": [
+      19
+    ],
+    "unmapped": [],
+    "sourceChordCount": 26,
+    "outputChordCount": 26
+  },
+  {
+    "title": "Sveta noč",
+    "pages": [
+      [
+        14,
+        2
+      ]
+    ],
+    "referencePages": [
+      18
+    ],
+    "unmapped": [],
+    "sourceChordCount": 33,
+    "outputChordCount": 33
+  },
+  {
+    "title": "Slavi ga, slavi ga",
+    "pages": [
+      [
+        15,
+        1
+      ]
+    ],
+    "referencePages": [
+      20
+    ],
+    "unmapped": [],
+    "sourceChordCount": 5,
+    "outputChordCount": 6
+  },
+  {
+    "title": "Ko čutiš to",
+    "pages": [
+      [
+        15,
+        2
+      ]
+    ],
+    "referencePages": [
+      21
+    ],
+    "unmapped": [],
+    "sourceChordCount": 34,
+    "outputChordCount": 34
+  },
+  {
+    "title": "Ti naša mati ljubljena",
+    "pages": [
+      [
+        16,
+        1
+      ]
+    ],
+    "referencePages": [
+      22
+    ],
+    "unmapped": [],
+    "sourceChordCount": 58,
+    "outputChordCount": 56
+  },
+  {
+    "title": "Naj te pozdravim",
+    "pages": [
+      [
+        16,
+        2
+      ]
+    ],
+    "referencePages": [
+      23
+    ],
+    "unmapped": [],
+    "sourceChordCount": 62,
+    "outputChordCount": 62
+  },
+  {
+    "title": "O Marija (Kako si lepa)",
+    "pages": [
+      [
+        17,
+        1
+      ]
+    ],
+    "referencePages": [
+      24
+    ],
+    "unmapped": [],
+    "sourceChordCount": 54,
+    "outputChordCount": 57
+  },
+  {
+    "title": "Kličem \"svet si\"",
+    "pages": [
+      [
+        17,
+        2
+      ]
+    ],
+    "referencePages": [
+      25
+    ],
+    "unmapped": [],
+    "sourceChordCount": 17,
+    "outputChordCount": 17
+  },
+  {
+    "title": "Mamica je kakor zarja",
+    "pages": [
+      [
+        18,
+        1
+      ]
+    ],
+    "referencePages": [
+      26
+    ],
+    "unmapped": [],
+    "sourceChordCount": 42,
+    "outputChordCount": 42
+  },
+  {
+    "title": "Mi se imamo radi",
+    "pages": [
+      [
+        18,
+        2
+      ]
+    ],
+    "referencePages": [
+      27
+    ],
+    "unmapped": [],
+    "sourceChordCount": 30,
+    "outputChordCount": 32
+  },
+  {
+    "title": "Glori, glori aleluja",
+    "pages": [
+      [
+        19,
+        1
+      ]
+    ],
+    "referencePages": [],
+    "unmapped": [],
+    "sourceChordCount": 24,
+    "outputChordCount": 24
+  },
+  {
+    "title": "Glori, glori aleluja (Rok)",
+    "pages": [
+      [
+        19,
+        2
+      ]
+    ],
+    "referencePages": [],
+    "unmapped": [],
+    "sourceChordCount": 24,
+    "outputChordCount": 24
+  },
+  {
+    "title": "Aleluja (Jezus Kristus je naš Rešenik)",
+    "pages": [
+      [
+        20,
+        1
+      ]
+    ],
+    "referencePages": [
+      28
+    ],
+    "unmapped": [],
+    "sourceChordCount": 44,
+    "outputChordCount": 42
+  },
+  {
+    "title": "Jezus, hvala za sonce",
+    "pages": [
+      [
+        20,
+        2
+      ]
+    ],
+    "referencePages": [
+      29
+    ],
+    "unmapped": [],
+    "sourceChordCount": 65,
+    "outputChordCount": 65
+  }
+]

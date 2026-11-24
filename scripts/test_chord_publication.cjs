@@ -33,7 +33,8 @@ async function main() {
   const login = await request("/api/login", { method: "POST", body: JSON.stringify({ username: env.ADMIN_USERNAME, password: env.ADMIN_PASSWORD }) });
   const cookie = login.headers.get("Set-Cookie").split(";")[0];
   const state = await (await request("/api/state", { headers: { Cookie: cookie } })).json();
-  assert.equal(state.songs.length, 6);
+  assert.ok(state.songs.length >= original.songs.length);
+  assert.equal(new Set(state.songs.map((song) => song.id)).size, state.songs.length);
   const miklavz = state.songs.find((song) => song.catalogKey === 'pridi-sveti-miklavz');
   assert.equal(miklavz.title, 'Pridi, sveti Miklavž');
   assert.doesNotMatch(miklavz.inlineChords, /akordi v c.?duru|refren|kitica/i);
@@ -55,7 +56,8 @@ async function main() {
   const toronto = state.songs.find((song) => song.catalogKey === "gospod-toronto-2002");
   assert.match(toronto.inlineChords, /Gos\[D\]pod/);
   assert.match(toronto.inlineChords, /\[Fis\]/);
-  assert.deepEqual(state.songs.find((song) => song.id === "old-gospod"), original.songs[2]);
+  assert.equal(state.songs.find((song) => song.id === "old-gospod").chordHistory[0].inlineChords, original.songs[2].inlineChords,
+    "Explicit PDF import archives the previous version rather than deleting it");
   assert.deepEqual(state.massHistory, original.massHistory);
   assert.deepEqual(state.people, original.people);
   assert.equal(writes, 0, "GET migration must not race a save by overwriting storage");
@@ -69,7 +71,7 @@ async function main() {
   stored.songs.find((song) => song.id === "manual-ko").inlineChords = "[D]Later user edit";
   const reloaded = await (await request("/api/state", { headers: { Cookie: cookie } })).json();
   assert.equal(reloaded.songs.find((song) => song.id === "manual-ko").inlineChords, "[D]Later user edit");
-  assert.equal(reloaded.songs.length, 6, "No duplicates after reopening");
+  assert.equal(reloaded.songs.length, state.songs.length, "No duplicates after reopening");
   assert.equal(reloaded.songs.find((song) => song.id === 'manual-ko').title, "Ko Jezus je začel učiti", "An empty source link must not match unrelated songs");
   console.log("Published chords: legacy state repaired on read/save, both songs present, backups and later edits preserved, private fields excluded OK.");
 }

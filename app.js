@@ -300,7 +300,19 @@ z nebes veseli glas.
 G                   C
 Gloria in excelsis Deo,
 G                 C
-tako angelci pojejo.`,
+tako angelci pojejo.
+Lepo pojo na čast Bogu,
+odprto je nebo.
+
+Tja pojdite in molite
+Zveličarja Boga.
+Kot angelci zapojte vsi,
+kar glas moči ima.
+
+Gloria in excelsis Deo,
+tako angelci pojejo,
+lepo pojo na čast Bogu,
+odprto je nebo.`,
   "Sveta noč": `A                                E            A
 Sveta noč, blažena noč vse že spi, je polnoč,
 D                A                    D                A
@@ -1174,8 +1186,11 @@ function importSongLibrary() {
     changed = true;
   }
   for (const correction of catalog.chordCorrections || []) {
+    const entry = catalog.songs.find((item) => songbookTitleKey(item.title) === songbookTitleKey(correction.title));
     for (const song of state.songs) {
-      if (songbookTitleKey(song.title) !== songbookTitleKey(correction.title) && (!correction.link || song.link !== correction.link)) continue;
+      const importedMatch = correction.sourceImport && (song.catalogKey === entry?.key
+        || (entry?.aliases || []).some((alias) => songbookTitleKey(alias) === songbookTitleKey(song.title)));
+      if (!importedMatch && songbookTitleKey(song.title) !== songbookTitleKey(correction.title) && (!correction.link || song.link !== correction.link)) continue;
       if (correction.printColumns === 1) song.chordPrintColumns = 1;
       if (song.chordRevision === correction.version) continue;
       if (song.chords || song.inlineChords) {
@@ -1183,7 +1198,7 @@ function importSongLibrary() {
           chords: song.chords || "", inlineChords: song.inlineChords || "", lyrics: song.lyrics || "",
         }];
       }
-      song.title = correction.title;
+      if (!correction.sourceImport) song.title = correction.title;
       song.link = correction.link || song.link || "";
       song.chords = correction.inlineChords;
       song.inlineChords = correction.inlineChords;
@@ -2781,7 +2796,7 @@ function tokenizeInlineChords(text) {
       if (line[index] === "[") {
         const end = line.indexOf("]", index + 1);
         if (end > index) {
-          pendingChord = line.slice(index + 1, end);
+          pendingChord = [pendingChord, line.slice(index + 1, end)].filter(Boolean).join(" ");
           index = end;
           continue;
         }

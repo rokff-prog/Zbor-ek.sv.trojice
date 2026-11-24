@@ -1,13 +1,13 @@
-const CACHE_NAME = "zborcek-app-v65";
+const CACHE_NAME = "zborcek-app-v66";
 const BIRTHDAY_CACHE = "zborcek-private-birthdays-v1";
 const BIRTHDAY_DATA_URL = new URL("./__birthday-data", self.registration.scope).href;
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20261122-fixed-desktop-menu",
+  "./styles.css?v=20261124-original-chords",
   "./auth-config.js?v=20260915-public",
   "./auth.js?v=20261115-fast-start",
-  "./song-catalog.js?v=20261122-zbudi-betlehem",
+  "./song-catalog.js?v=20261124-original-chords",
   "./song-numbering.js?v=20261025-distinct-arrangements",
   "./canva-client.js?v=20261024-new-pages",
   "./presentation-update.js?v=20261025-unified-usb",
@@ -16,7 +16,7 @@ const APP_SHELL = [
   "./vendor/rrule-2.8.1.min.js",
   "./calendar-draft.js?v=20261025-calendar-repeat",
   "./calendar-events.js?v=20261122-song-notes",
-  "./app.js?v=20261123-print-images",
+  "./app.js?v=20261124-original-chords",
   "./install-app.js?v=20261115-poldi4-restore",
   "./manifest.webmanifest",
   "./assets/icons/zborcek-192.png",
